@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverMoon</title>
+    <link rel="icon" type="image/png" href="../static/images/logo.png">
+    <link rel="stylesheet" href="../static/css/style.css">
+
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body id="top">
+    <!--- NavBar -->
+    <nav>
+        <div class="logo">
+            <a href="../index.html#top"><img src="../static/images/logo.png" alt="SilverMoon Logo">SilverMoon.</a>
+        </div>
+        <div class="menu-toggle" id="menuToggle">
+            <ion-icon name="menu-outline"></ion-icon>
+        </div>        
+        <div class="nav-links" id="navLinks">
+            <a href="../index.html#top">Home</a>
+            <div class="dropdown">
+                <a href="hoodies.html#hoodies" class="dropdown-toggle">Hoodies<ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="hoodies.html#hmens">Men's Category</a>
+                    <a href="hoodies.html#hwomens">Women's Category</a>
+                    <a href="hoodies.html#hkids">Kids' Category</a>
+                    <a href="hoodies.html#hbaby">Baby Category</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <a href="sweatshirts.html#sweatshirts" class="dropdown-toggle">Sweatshirts<ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="sweatshirts.html#smens">Men's Category</a>
+                    <a href="sweatshirts.html#swomens">Women's Category</a>
+                    <a href="sweatshirts.html#skids">Kids' Category</a>
+                    <a href="sweatshirts.html#sbaby">Baby Category</a>
+                </div>
+            </div>
+            <a href="contact.html#contact">Contact Us</a>
+            <div class="icons"><ion-icon name="cart-outline"></ion-icon></div>
+            <a href="login.html#top">Login</a>
+        </div>
+    </nav>
+
+    <!--- Login -->
+    <section class="login-section">
+        <div class="login-container">
+            <!-- Login Form -->
+            <div class="auth-form" id="loginForm">
+                <div class="form-header">
+                    <h2>Welcome Back!</h2>
+                    <p>Login to your account to continue</p>
+                </div>
+                
+                <form onsubmit="return handleLogin(event)">
+                    <div class="form-group">
+                        <label for="loginEmail">
+                            <ion-icon name="mail-outline"></ion-icon>
+                            Email Address
+                        </label>
+                        <input type="email" id="loginEmail" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="loginPassword">
+                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            Password
+                        </label>
+                        <input type="password" id="loginPassword" placeholder="Enter your password" required>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="remember-me">
+                            <input type="checkbox" id="rememberMe">
+                            <span>Remember me</span>
+                        </label>
+                        <a href="#" class="forgot-password">Forgot Password?</a>
+                    </div>
+                    
+                    <button type="submit" class="auth-btn">Login</button>
+                    
+                    <div class="form-footer">
+                        <p>Don't have an account? <a href="#" onclick="toggleForms(); return false;">Sign Up</a></p>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Sign Up Form -->
+            <div class="auth-form hidden" id="signupForm">
+                <div class="form-header">
+                    <h2>Create Account</h2>
+                    <p>Join us and discover products you'll love!</p>
+                </div>
+                
+                <form onsubmit="return handleSignup(event)">
+                    <div class="form-group">
+                        <label for="signupName">
+                            <ion-icon name="person-outline"></ion-icon>
+                            Full Name
+                        </label>
+                        <input type="text" id="signupName" placeholder="Enter your full name" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="signupEmail">
+                            <ion-icon name="mail-outline"></ion-icon>
+                            Email Address
+                        </label>
+                        <input type="email" id="signupEmail" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="signupPassword">
+                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            Password
+                        </label>
+                        <input type="password" id="signupPassword" placeholder="Create a password" required minlength="6">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="signupConfirmPassword">
+                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            Confirm Password
+                        </label>
+                        <input type="password" id="signupConfirmPassword" placeholder="Confirm your password" required minlength="6">
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="remember-me">
+                            <input type="checkbox" id="agreeTerms" required>
+                            <span>I agree to the Terms & Conditions</span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="auth-btn">Sign Up</button>
+                    
+                    <div class="form-footer">
+                        <p>Already have an account? <a href="#" onclick="toggleForms(); return false;">Login</a></p>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-col brand">
+                <h2>SilverMoon<span>.</span></h2>
+                <p>We will keep you cozy with our comfy hoodies and sweatshirts with fast delivery.</p>
+                <div class="footer-socials">
+                    <a href="https://facebook.com/"><ion-icon name="logo-facebook"></ion-icon></a>
+                    <a href="https://instagram.com/"><ion-icon name="logo-instagram"></ion-icon></a>
+                    <a href="https://twitter.com/"><ion-icon name="logo-twitter"></ion-icon></a>
+                    <a href="https://google.com/"><ion-icon name="logo-google"></ion-icon></a>
+                </div>
+            </div>
+
+            <div class="footer-col">
+                <h3>Our Products</h3>
+                <ul>
+                    <li><a href="../index.html#popular">Popular</a></li>
+                    <li><a href="../index.html#picks">Picks</a></li>
+                    <li><a href="hoodies.html#hoodies">Hoodies</a></li>
+                    <li><a href="sweatshirts.html#sweatshirts">Sweatshirts</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h3>Company</h3>
+                <ul>
+                    <li><a href="../index.html#services">Why SilverMoon</a></li>
+                    <li><a href="footer.html#partner">Partner With Us</a></li>
+                    <li><a href="footer.html#about">About Us</a></li>
+                    <li><a href="footer.html#faq">FAQs</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h3>Support</h3>
+                <ul>
+                    <li><a href="login.html">Account</a></li>
+                    <li><a href="contact.html#contact">Support Center</a></li>
+                    <li><a href="../index.html#reviews">Feedback</a></li>
+                    <li><a href="contact.html#contact">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 SilverMoon. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="../static/js/script.js"></script>
+</body>
+</html>

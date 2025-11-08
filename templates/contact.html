@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverMoon</title>
+    <link rel="icon" type="image/png" href="../static/images/logo.png">
+    <link rel="stylesheet" href="../static/css/style.css">
+
+    <!-- EmailJS -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
+    
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body>
+    <!--- NavBar -->
+    <nav>
+        <div class="logo">
+            <a href="../index.html#top"><img src="../static/images/logo.png" alt="SilverMoon Logo">SilverMoon.</a>
+        </div>
+        <div class="menu-toggle" id="menuToggle">
+            <ion-icon name="menu-outline"></ion-icon>
+        </div>        
+        <div class="nav-links" id="navLinks">
+            <a href="../index.html#top">Home</a>
+            <div class="dropdown">
+                <a href="hoodies.html#hoodies" class="dropdown-toggle">Hoodies<ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="hoodies.html#hmens">Men's Category</a>
+                    <a href="hoodies.html#hwomens">Women's Category</a>
+                    <a href="hoodies.html#hkids">Kids' Category</a>
+                    <a href="hoodies.html#hbaby">Baby Category</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <a href="sweatshirts.html#sweatshirts" class="dropdown-toggle">Sweatshirts<ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="sweatshirts.html#smens">Men's Category</a>
+                    <a href="sweatshirts.html#swomens">Women's Category</a>
+                    <a href="sweatshirts.html#skids">Kids' Category</a>
+                    <a href="sweatshirts.html#sbaby">Baby Category</a>
+                </div>
+            </div>
+            <a href="contact.html#contact">Contact Us</a>
+            <div class="icons"><ion-icon name="cart-outline"></ion-icon></div>
+            <a href="login.html#top">Login</a>
+        </div>
+    </nav>
+
+    <!--- Contact -->
+    <section class="contact-section" id="contact">
+        <h3 class="contact-subtitle">Our Contact</h3>
+        <h2 class="contact-title">Get In Touch</h2>
+
+        <div class="contact-container">
+            <div class="contact-map">
+                <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d56119.092380732625!2d120.87637219113266!3d13.727470216715622!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x33bd0747a21db82d%3A0x6987772247cd8444!2sMabini%2C%20Batangas!5e1!3m2!1sen!2sph!4v1759842571551!5m2!1sen!2sph" 
+                    width="600" height="450" style="border:0;" allowfullscreen="" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+            </div>
+
+            <div class="contact-info">
+                <h4>We'd Love to Hear From You</h4>
+                <p>Feel free to get in touch with us. At SilverMoon, we're always happy to hear from you — whether it's about your orders, feedback, or ideas to make your shopping experience even better. 
+                    We also welcome partnership opportunities and offer dedicated support to help bring your business and brand goals to life.</p>
+                <a class="btn-mail" href="mailto:christinejoy.agkis@gmail.com?subject=Hello%20SilverMoon" title="Email us"><ion-icon name="mail-outline"></ion-icon><span>Send us an email</span></a>
+                
+                <div class="contact-details">
+                    <div class="details-item">
+                        <ion-icon name="mail-outline"></ion-icon>
+                        <div class="details-info">
+                            <h5>Email</h5>
+                            <p>inquiry@silvermoon.com</p>
+                        </div>
+                    </div>
+                    <div class="details-item">
+                        <ion-icon name="call-outline"></ion-icon>
+                        <div class="details-info">
+                            <h5>Phone</h5>
+                            <p>+63 939 231 6994</p>
+                        </div>
+                    </div>
+                    <div class="details-item">
+                        <ion-icon name="location-outline"></ion-icon>
+                        <div class="details-info">
+                            <h5>Location</h5>
+                            <p>Mabini, Batangas</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-col brand">
+                <h2>SilverMoon<span>.</span></h2>
+                <p>We will keep you cozy with our comfy hoodies and sweatshirts with fast delivery.</p>
+                <div class="footer-socials">
+                    <a href="https://facebook.com/"><ion-icon name="logo-facebook"></ion-icon></a>
+                    <a href="https://instagram.com/"><ion-icon name="logo-instagram"></ion-icon></a>
+                    <a href="https://twitter.com/"><ion-icon name="logo-twitter"></ion-icon></a>
+                    <a href="https://google.com/"><ion-icon name="logo-google"></ion-icon></a>
+                </div>
+            </div>
+
+            <div class="footer-col">
+                <h3>Our Products</h3>
+                <ul>
+                    <li><a href="../index.html#popular">Popular</a></li>
+                    <li><a href="../index.html#picks">Picks</a></li>
+                    <li><a href="hoodies.html#hoodies">Hoodies</a></li>
+                    <li><a href="sweatshirts.html#sweatshirts">Sweatshirts</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h3>Company</h3>
+                <ul>
+                    <li><a href="../index.html#services">Why SilverMoon</a></li>
+                    <li><a href="footer.html#partner">Partner With Us</a></li>
+                    <li><a href="footer.html#about">About Us</a></li>
+                    <li><a href="footer.html#faq">FAQs</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h3>Support</h3>
+                <ul>
+                    <li><a href="login.html">Account</a></li>
+                    <li><a href="contact.html#contact">Support Center</a></li>
+                    <li><a href="../index.html#reviews">Feedback</a></li>
+                    <li><a href="contact.html#contact">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 SilverMoon. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="../static/js/script.js"></script>
+</body>
+</html>

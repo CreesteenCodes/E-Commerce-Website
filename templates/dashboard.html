@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverMoon</title>
+    <link rel="icon" type="image/png" href="../static/images/logo.png">
+    <link rel="stylesheet" href="../static/css/style.css">
+
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body id="top">
+    <!--- NavBar -->
+    <nav>
+        <div class="logo">
+            <a href="dashboard.html"><img src="../static/images/logo.png" alt="SilverMoon Logo">SilverMoon.</a>
+        </div>
+        <div class="menu-toggle" id="menuToggle">
+            <ion-icon name="menu-outline"></ion-icon>
+        </div>
+        <div class="nav-links" id="dashboardNav">
+            <a href="#" onclick="showDashboard(); return false;">Dashboard</a>
+            <a href="#" id="ordersNavLink" onclick="showOrders(); return false;" style="display: none;">Orders</a>
+            <a href="#" id="viewMenuNavLink" onclick="showViewMenu(); return false;" style="display: none;">View Products</a>
+            <a href="#" id="menuManagementNavLink" onclick="showMenuManagement(); return false;" style="display: none;">Products</a>
+            <a href="#" id="userManagementNavLink" onclick="showUserManagement(); return false;" style="display: none;">Users</a>
+            <div class="dropdown account-dropdown">
+                <a href="#" class="dropdown-toggle" id="staffUserName">Account <ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="#" onclick="handleStaffLogout(); return false;" style="color: #ef4444;">
+                        <ion-icon name="log-out-outline" style="margin-right: 8px; vertical-align: middle;"></ion-icon>
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!--- Dashboard Content -->
+    <section class="dashboard-section">
+        <div class="dashboard-container">
+            
+            <!-- Dashboard Overview -->
+            <div id="dashboardContent" class="dashboard-content">
+                <div class="dashboard-header">
+                    <h1>SilverMoon</h1>
+                    <p id="dashboardWelcome">Welcome back!</p>
+                </div>
+
+                <div class="dashboard-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(34, 197, 94, 0.2);">
+                            <ion-icon name="receipt-outline" style="color: #22c55e;"></ion-icon>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalOrders">0</h3>
+                            <p>Total Orders</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2);">
+                            <ion-icon name="time-outline" style="color: #3b82f6;"></ion-icon>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="pendingOrders">0</h3>
+                            <p>Pending Orders</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(248, 175, 30, 0.2);">
+                            <ion-icon name="restaurant-outline" style="color: #f8af1e;"></ion-icon>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalMenuItems">0</h3>
+                            <p>Product Items</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card">
+                        <div class="stat-icon" style="background: rgba(168, 85, 247, 0.2);">
+                            <ion-icon name="people-outline" style="color: #a855f7;"></ion-icon>
+                        </div>
+                        <div class="stat-info">
+                            <h3 id="totalUsers">0</h3>
+                            <p>Registered Users</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recent-activity">
+                    <h2>Recent Orders</h2>
+                    <div id="recentOrdersList" class="orders-list">
+                        <!-- Recent orders will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Management (Staff View) -->
+            <div id="ordersContent" class="dashboard-content" style="display: none;">
+                <div class="dashboard-header">
+                    <h1>Order Management</h1>
+                </div>
+
+                <div class="orders-filters">
+                    <button class="filter-btn active" onclick="filterOrders('all')">All Orders</button>
+                    <button class="filter-btn" onclick="filterOrders('Processing')">Processing</button>
+                    <button class="filter-btn" onclick="filterOrders('Shipping')">Shipping</button>
+                    <button class="filter-btn" onclick="filterOrders('Delivered')">Delivered</button>
+                </div>
+
+                <div id="ordersList" class="orders-list">
+                    <!-- Orders will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Menu Management (Admin View) -->
+            <div id="menuManagementContent" class="dashboard-content" style="display: none;">
+                <div class="dashboard-header">
+                    <h1>Product Management</h1>
+                </div>
+
+                <div style="display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap;">
+                    <button class="add-btn" onclick="showAddMenuItemForm()">
+                        <ion-icon name="add-circle-outline"></ion-icon>
+                        Add New Item
+                    </button>
+                    
+                    <div style="max-width: 400px;">
+                        <input 
+                            type="text" 
+                            id="menuSearchInput" 
+                            placeholder="Search products..."
+                            oninput="searchMenuItems(this.value)"
+                            style="
+                                width: 100%;
+                                padding: 12px 16px;
+                                border-radius: 10px;
+                                border: 1px solid rgba(255, 255, 255, 0.2);
+                                background: rgba(255, 255, 255, 0.05);
+                                color: white;
+                                font-size: 1rem;
+                            "
+                        />
+                    </div>
+                </div>
+
+                <div id="menuItemsList" class="menu-management-list">
+                    <!-- Product items will be loaded here -->
+                </div>
+            </div>
+
+            <!-- View Menu (Staff View - Read Only) -->
+            <div id="viewMenuContent" class="dashboard-content" style="display: none;">
+                <div class="dashboard-header">
+                    <h1>Products</h1>
+                </div>
+
+                <div style="margin-bottom: 20px; max-width: 400px;">
+                    <input 
+                        type="text" 
+                        id="viewMenuSearchInput" 
+                        placeholder="Search products..."
+                        oninput="searchViewMenuItems(this.value)"
+                        style="
+                            width: 100%;
+                            padding: 12px 16px;
+                            border-radius: 10px;
+                            border: 1px solid rgba(255, 255, 255, 0.2);
+                            background: rgba(255, 255, 255, 0.05);
+                            color: white;
+                            font-size: 1rem;
+                        "
+                    />
+                </div>
+
+                <div id="viewMenuItemsList" class="menu-management-list">
+                    <!-- Product items will be loaded here (read-only) -->
+                </div>
+            </div>
+
+            <!-- User Management (Admin View) -->
+            <div id="userManagementContent" class="dashboard-content" style="display: none;">
+                <div class="dashboard-header">
+                    <h1>User Management</h1>
+                </div>
+
+                <div class="user-tabs">
+                    <button class="tab-btn active" onclick="showUserTab('customers')">Customers</button>
+                    <button class="tab-btn" onclick="showUserTab('staff')">Staff & Admin</button>
+                </div>
+
+                <div id="customersTab" class="user-tab-content">
+                    <div id="customersList" class="users-list">
+                        <!-- Customers will be loaded here -->
+                    </div>
+                </div>
+
+                <div id="staffTab" class="user-tab-content" style="display: none;">
+                    <button class="add-btn" onclick="showAddStaffForm()" style="margin-bottom: 20px;">
+                        <ion-icon name="person-add-outline"></ion-icon>
+                        Add Staff Member
+                    </button>
+                    <div id="staffList" class="users-list">
+                        <!-- Staff will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-col brand">
+                <h2>SilverMoon<span>.</span></h2>
+                <p>We will keep you cozy with our comfy hoodies and sweatshirts with fast delivery.</p>
+            </div>
+
+            <div class="footer-col">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="../index.html">SilverMoon.</a></li>
+                    <li><a href="../admin_staff.html">Personnel Login</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 SilverMoon. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="../static/js/script.js"></script>
+    <script src="../static/js/admin_staff.js"></script>
+    <script src="../static/js/dashboard.js"></script>
+</body>
+</html>

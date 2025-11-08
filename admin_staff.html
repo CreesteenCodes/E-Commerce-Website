@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverMoon</title>
+    <link rel="icon" type="image/png" href="../static/images/logo.png">
+    <link rel="stylesheet" href="static/css/style.css">
+
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body id="top">
+    <!--- NavBar -->
+    <nav>
+        <div class="logo">
+            <a href="index.html#top"><img src="static/images/logo.png" alt="SilverMoon Logo">SilverMoon.</a>
+        </div>
+        <div class="menu-toggle" id="menuToggle">
+            <ion-icon name="menu-outline"></ion-icon>
+        </div>
+    </nav>
+
+    <!--- Staff/Admin Login -->
+    <section class="login-section">
+        <div class="login-container">
+            <div class="auth-form" id="staffLoginForm">
+                <div class="form-header">
+                    <div style="display: flex; justify-content: center; margin-bottom: 20px;">
+                        <ion-icon name="shield-checkmark-outline" style="font-size: 4rem; color: #f8af1e;"></ion-icon>
+                    </div>
+                    <h2>Personnel Login</h2>
+                    <p>Enter your credentials to access the dashboard</p>
+                </div>
+                
+                <form onsubmit="return handleStaffLogin(event)">
+                    <div class="form-group">
+                        <label for="staffEmail">
+                            <ion-icon name="mail-outline"></ion-icon>
+                            Email Address
+                        </label>
+                        <input type="email" id="staffEmail" placeholder="Enter your email" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="staffPassword">
+                            <ion-icon name="lock-closed-outline"></ion-icon>
+                            Password
+                        </label>
+                        <input type="password" id="staffPassword" placeholder="Enter your password" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="staffRole">
+                            <ion-icon name="people-outline"></ion-icon>
+                            Role
+                        </label>
+                        <select id="staffRole" required style="
+                            width: 100%;
+                            padding: 0.9rem 1rem;
+                            background: rgba(255,255,255,0.05);
+                            border: 1px solid var(--glass-border);
+                            border-radius: 10px;
+                            color: white;
+                            font-size: 1rem;
+                            transition: all 0.3s ease;
+                            outline: none;
+                            cursor: pointer;
+                        ">
+                            <option value="" disabled selected>Select your role</option>
+                            <option value="staff" style="background: #0b0f13; color: white;">Staff</option>
+                            <option value="admin" style="background: #0b0f13; color: white;">Administrator</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-options">
+                        <label class="remember-me">
+                            <input type="checkbox" id="staffRememberMe">
+                            <span>Remember me</span>
+                        </label>
+                    </div>
+                    
+                    <button type="submit" class="auth-btn">Login to Dashboard</button>
+            </div>
+        </div>
+    </section>
+
+    <script src="static/js/script.js"></script>
+    <script src="static/js/admin_staff.js"></script>
+</body>
+</html>

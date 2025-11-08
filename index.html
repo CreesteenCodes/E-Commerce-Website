@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SilverMoon</title>
+    <link rel="icon" type="image/png" href="static/images/logo.png">
+    <link rel="stylesheet" href="static/css/style.css">
+
+    <!-- Ionicons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+</head>
+<body id="top">
+    <!--- NavBar -->
+    <nav>
+        <div class="logo">
+            <a href="index.html#top"><img src="static/images/logo.png" alt="SilverMoon Logo">SilverMoon.</a>
+        </div>
+        <div class="menu-toggle" id="menuToggle">
+            <ion-icon name="menu-outline"></ion-icon>
+        </div>        
+        <div class="nav-links" id="navLinks">
+            <a href="index.html#top">Home</a>
+            <div class="dropdown">
+                <a href="templates/hoodies.html#hoodies" class="dropdown-toggle">Hoodies<ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="templates/hoodies.html#hmens">Men's Category</a>
+                    <a href="templates/hoodies.html#hwomens">Women's Category</a>
+                    <a href="templates/hoodies.html#hkids">Kids' Category</a>
+                    <a href="templates/hoodies.html#hbaby">Baby Category</a>
+                </div>
+            </div>
+            <div class="dropdown">
+                <a href="templates/sweatshirts.html" class="dropdown-toggle">Sweatshirts<ion-icon name="chevron-down-outline"></ion-icon></a>
+                <div class="dropdown-menu">
+                    <a href="templates/sweatshirts.html#smens">Men's Category</a>
+                    <a href="templates/sweatshirts.html#swomens">Women's Category</a>
+                    <a href="templates/sweatshirts.html#skids">Kids' Category</a>
+                    <a href="templates/sweatshirts.html#sbaby">Baby Category</a>
+                </div>
+            </div>
+            <a href="templates/contact.html#contact">Contact Us</a>
+            <div class="icons"><ion-icon name="cart-outline"></ion-icon></div>
+            <a href="templates/login.html#top">Login</a>
+        </div>
+    </nav>
+
+    <!--- Homepage -->
+    <section class="hero" id="hero">
+        <div class="hero-content">
+            <h1>When Comfort Meets Style</h1>
+            <p>Discover SilverMoon, where every hoodie and sweatshirt is crafted for warmth, style, and effortless comfort.</p>
+            <button class="order-btn">Order Now</button>
+        </div>
+        <div class="hero-image">
+            <img src="static/images/image-1.png" alt="SilverMoon Image">
+        </div>
+    </section>
+
+    <!-- Our Services -->
+    <section class="services" id="services">
+        <div class="services-header">
+            <h4>OUR SERVICES</h4>
+            <h2>How Does It Work?</h2>
+        </div>
+
+        <div class="service-cards">
+            <div class="service-card">
+                <ion-icon name="phone-portrait-outline"></ion-icon>
+                <h3>Easy To Shop</h3>
+                <p>Find your perfect fit in just a few clicks.</p>
+            </div>
+
+            <div class="service-card">
+                <ion-icon name="bicycle-outline"></ion-icon>
+                <h3>Fast Shipping</h3>
+                <p>Shipping that’s always on time — even faster than you expect!</p>
+            </div>
+
+            <div class="service-card">
+                <ion-icon name="ribbon-outline"></ion-icon>
+                <h3>Premium Quality</h3>
+                <p>Soft fabrics, durable stitching, and timeless designs.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Our Menu -->
+    <section class="menu-section">
+        <h3 class="menu-subtitle">OUR PRODUCTS</h3>
+        <h2 class="menu-title" id="popular">The Most Popular</h2>
+
+        <div class="menu-container">
+            <div class="menu-card">
+                <img src="static/images/products/Women's Oversized Zip-Through Hoodie.webp" alt="Women's Oversized Zip-Through Hoodie">
+                <h3>Women's Oversized Zip-Through Hoodie</h3>
+                    <p class="price">₱1,490.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Women's Printed Sweatshirt.webp" alt="Women's Printed Sweatshirt">
+                <h3>Women's Printed Sweatshirt</h3>
+                    <p class="price">₱1,490.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Baby Cotton Hoodie.webp" alt="Baby Cotton Hoodie">
+                <h3>Baby Cotton Hoodie</h3>
+                    <p class="price">₱1,295.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Men's Relaxed Fit Printed Sweatshirt.webp" alt="Men's Relaxed Fit Printed Sweatshirt">
+                <h3>Men's Relaxed Fit Printed Sweatshirt</h3>
+                    <p class="price">₱1,290.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Kids Motif-Detail Hoodie.webp" alt="Kids Motif-Detail Hoodie">
+                <h3>Kids Motif-Detail Hoodie</h3>
+                    <p class="price">₱999.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Baby Embroidered Teddy Sweatshirt.webp" alt="Baby Embroidered Teddy Sweatshirt">
+                <h3>Baby Embroidered Teddy Sweatshirt</h3>
+                    <p class="price">₱799.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Men's Loose Fit Printed Hoodie.webp" alt="Men's Loose Fit Printed Hoodie">
+                <h3>Men's Loose Fit Printed Hoodie</h3>
+                    <p class="price">₱1,790.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Kids Logo Zip Hoodie In Fleece.webp" alt="Kids Logo Zip Hoodie In Fleece">
+                <h3>Kids Logo Zip Hoodie In Fleece</h3>
+                    <p class="price">₱1,950.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+        </div>
+
+        <h2 class="menu-title specialty-title" id="picks">Our Picks</h2>
+
+        <div class="menu-container">
+            <div class="menu-card">
+                <img src="static/images/products/Kids Oversized Print-Motif Sweatshirt.webp" alt="Kids Oversized Print-Motif Sweatshirt">
+                <h3>Kids Oversized Print-Motif Sweatshirt</h3>
+                    <p class="price">₱999.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Baby Appliquéd Fleece Hoodie.webp" alt="Baby Appliquéd Fleece Hoodie">
+                <h3>Baby Appliquéd Fleece Hoodie</h3>
+                    <p class="price">₱1,290.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Women's Text-Motif Sweatshirt.webp" alt="Women's Text-Motif Sweatshirt">
+                <h3>Women's Text-Motif Sweatshirt</h3>
+                    <p class="price">₱1,490.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Women's Hooded Top.webp" alt="Women's Hooded Top">
+                <h3>Women's Hooded Top</h3>
+                    <p class="price">₱999.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Baby Palm Trees Printed Sweatshirt.webp" alt="Baby Palm Trees Printed Sweatshirt">
+                <h3>Baby Palm Trees Printed Sweatshirt</h3>
+                    <p class="price">₱1,295.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Baby VintageSoft Logo Hoodie One-Piece.webp" alt="Baby VintageSoft Logo Hoodie One-Piece">
+                <h3>Baby VintageSoft Logo Hoodie One-Piece</h3>
+                    <p class="price">₱2,749.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Men's Oversized Fit Printed Sweatshirt.webp" alt="Men's Oversized Fit Printed Sweatshirt">
+                <h3>Men's Oversized Fit Printed Sweatshirt</h3>
+                    <p class="price">₱1,790.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+
+            <div class="menu-card">
+                <img src="static/images/products/Kids Graphic Print Sweatshirt.webp" alt="Kids Graphic Print Sweatshirt">
+                <h3>Kids Graphic Print Sweatshirt</h3>
+                    <p class="price">₱1,409.00</p>
+                <button class="add-btn">Add to Cart</button>
+            </div>
+        </div>
+    </section>
+
+    <!--- Our Reviews -->
+    <section class="reviews" id="reviews">
+        <div class="review-container">
+            <div class="review-image">
+                <img src="static/images/image-2.png" alt="Customer Review">
+            </div>
+
+            <div class="review-content">
+                <h4>OUR REVIEWS</h4>
+                <h2>What They Say?</h2>
+
+                <div class="review-card active">
+                    <div class="review-header">
+                        <img src="static/images/reviews/review-1.jpg" alt="Reviewer" class="reviewer-img">
+                        <div>
+                            <h3>Matt Callum</h3>
+                            <div class="stars">
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                            </div>
+                        </div>
+                    </div>
+                    <p>Super comfy and soft! The material feels premium and perfect for everyday wear. Definitely my new favorite hoodie.</p>
+                    <div class="review-nav">
+                        <button class="nav-btn" id="prevBtn"><ion-icon name="arrow-back-outline"></ion-icon></button>
+                        <button class="nav-btn" id="nextBtn"><ion-icon name="arrow-forward-outline"></ion-icon></button>
+                    </div>
+                </div>
+
+                <div class="review-card">
+                    <div class="review-header">
+                        <img src="static/images/reviews/review-2.jpg" alt="Reviewer" class="reviewer-img">
+                        <div>
+                            <h3>Sophia Anderson</h3>
+                            <div class="stars">
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                            </div>
+                        </div>
+                    </div>
+                    <p>I love how cozy this sweatshirt is! Fits just right and keeps me warm without being too heavy. Worth every peso!</p>
+                    <div class="review-nav">
+                        <button class="nav-btn prev-btn"><ion-icon name="arrow-back-outline"></ion-icon></button>
+                        <button class="nav-btn next-btn"><ion-icon name="arrow-forward-outline"></ion-icon></button>
+                    </div>
+                </div>
+
+                <div class="review-card">
+                    <div class="review-header">
+                        <img src="static/images/reviews/review-3.jpg" alt="Reviewer" class="reviewer-img">
+                        <div>
+                            <h3>Amelia Moore</h3>
+                            <div class="stars">
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                                <ion-icon name="star"></ion-icon>
+                            </div>
+                        </div>
+                    </div>
+                    <p>The designs are so cute and stylish! I’ve gotten so many compliments wearing this. Great quality and fast shipping!</p>
+                    <div class="review-nav">
+                        <button class="nav-btn prev-btn"><ion-icon name="arrow-back-outline"></ion-icon></button>
+                        <button class="nav-btn next-btn"><ion-icon name="arrow-forward-outline"></ion-icon></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!--- Our Subscribe -->
+    <section class="subscribe">
+        <div class="subscribe-content">
+            <h4>OUR SUBSCRIBE</h4>
+            <h2>Subscribe To Our Newsletter</h2>
+            <p>We recommend you to subscribe to our newsletter. Drop your email below to get daily updates about us.</p>
+
+            <form class="subscribe-form">
+                <input type="email" placeholder="Enter your email address" required>
+                <button type="submit">Subscribe</button>
+            </form>
+        </div>
+    </section>
+
+    <!--- Footer -->
+    <footer class="footer">
+        <div class="footer-container">
+            <div class="footer-col brand">
+                <h2>SilverMoon<span>.</span></h2>
+                <p>We will keep you cozy with our comfy hoodies and sweatshirts with fast delivery.</p>
+                <div class="footer-socials">
+                    <a href="https://facebook.com/"><ion-icon name="logo-facebook"></ion-icon></a>
+                    <a href="https://instagram.com/"><ion-icon name="logo-instagram"></ion-icon></a>
+                    <a href="https://twitter.com/"><ion-icon name="logo-twitter"></ion-icon></a>
+                    <a href="https://google.com/"><ion-icon name="logo-google"></ion-icon></a>
+                </div>
+            </div>
+
+            <div class="footer-col">
+                <h3>Our Products</h3>
+                <ul>
+                    <li><a href="index.html#popular">Popular</a></li>
+                    <li><a href="index.html#picks">Picks</a></li>
+                    <li><a href="templates/hoodies.html#hoodies">Hoodies</a></li>
+                    <li><a href="templates/sweatshirts.html#sweatshirts">Sweatshirts</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h3>Company</h3>
+                <ul>
+                    <li><a href="index.html#services">Why SilverMoon</a></li>
+                    <li><a href="templates/footer.html#partner">Partner With Us</a></li>
+                    <li><a href="templates/footer.html#about">About Us</a></li>
+                    <li><a href="templates/footer.html#faq">FAQs</a></li>
+                </ul>
+            </div>
+
+            <div class="footer-col">
+                <h3>Support</h3>
+                <ul>
+                    <li><a href="templates/login.html">Account</a></li>
+                    <li><a href="templates/contact.html#contact">Support Center</a></li>
+                    <li><a href="index.html#reviews">Feedback</a></li>
+                    <li><a href="templates/contact.html#contact">Contacts</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="footer-bottom">
+            <p>&copy; 2025 SilverMoon. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="static/js/script.js"></script>
+</body>
+</html>
