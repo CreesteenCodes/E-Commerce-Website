@@ -134,6 +134,8 @@ document.addEventListener('DOMContentLoaded', function() {
 // Check if user is logged in on page load
 document.addEventListener('DOMContentLoaded', function() {
     checkAuthStatus();
+    // Ensure default product catalogue exists for first-time browsers
+    try { seedMenuItemsIfEmpty(); } catch (e) { console.warn('Seeding menu items failed', e); }
     initializeCart();
     normalizeExistingOrders();
     
@@ -235,6 +237,10 @@ function checkAuthStatus() {
                     <ion-icon name="bag-check-outline" style="margin-right: 8px; vertical-align: middle;"></ion-icon>
                     Purchase History
                 </a>
+                <a href="#" onclick="showCancelledOrders(); return false;">
+                    <ion-icon name="close-circle-outline" style="margin-right: 8px; vertical-align: middle;"></ion-icon>
+                    Cancelled Orders
+                </a>
                 <a href="#" onclick="handleLogout(); return false;" style="color: #ef4444;">
                     <ion-icon name="log-out-outline" style="margin-right: 8px; vertical-align: middle;"></ion-icon>
                     Logout
@@ -326,6 +332,28 @@ function checkAuthStatus() {
         updateCartBadge();
     }
 }
+
+// --- User-scoped storage helpers ---
+function getCurrentUserEmail() {
+    const cu = localStorage.getItem('currentUser');
+    if (!cu) return null;
+    try { return JSON.parse(cu).email || null; } catch (e) { return null; }
+}
+
+function userKey(base) {
+    const email = getCurrentUserEmail() || 'guest';
+    return `${base}__${email}`;
+}
+
+function getCart() { return JSON.parse(localStorage.getItem(userKey('cart'))) || []; }
+function setCart(cart) { localStorage.setItem(userKey('cart'), JSON.stringify(cart)); }
+
+function getShippingAddresses() { return JSON.parse(localStorage.getItem(userKey('shippingAddresses'))) || []; }
+function setShippingAddresses(addresses) { localStorage.setItem(userKey('shippingAddresses'), JSON.stringify(addresses)); }
+
+function getPurchaseHistory() { return JSON.parse(localStorage.getItem(userKey('purchaseHistory'))) || []; }
+function setPurchaseHistory(history) { localStorage.setItem(userKey('purchaseHistory'), JSON.stringify(history)); }
+
 
 // Toggle between login and signup forms
 function toggleForms() {
@@ -579,9 +607,19 @@ function closeAccountModal() {
 // Show Order Status
 function showOrderStatus() {
     const allOrders = JSON.parse(localStorage.getItem('orders')) || [];
-    
-    // Filter out orders that customer has already confirmed as received
-    const orders = allOrders.filter(order => !order.confirmedReceived);
+    const currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+
+    // Filter to orders that belong to the logged-in user and that are not yet confirmed received
+    // Exclude cancelled orders here — cancelled orders are shown under Cancelled Orders instead
+    const orders = allOrders.filter(order => {
+        if (order.confirmedReceived) return false;
+        if (!currentUser) return false;
+        // Exclude cancelled orders from the active Order Status view
+        if (order.status && String(order.status).toLowerCase() === 'cancelled') return false;
+        if (order.customerEmail && currentUser.email && order.customerEmail === currentUser.email) return true;
+        if (order.customerName && currentUser.name && order.customerName === currentUser.name) return true;
+        return false;
+    });
     
     let orderHTML = `
         <div class="shipping-address-form" style="color: white; backdrop-filter: blur(20px); max-height: 90vh; display: flex; flex-direction: column;">
@@ -651,9 +689,11 @@ function showOrderStatus() {
         orders.reverse().forEach((order, index) => {
             const orderDate = new Date(order.date);
             const statusColor = order.status === 'Delivered' ? '#22c55e' : 
-                               order.status === 'Shipping' ? '#3b82f6' : '#f8af1e';
+                               order.status === 'Shipping' ? '#3b82f6' : 
+                               order.status === 'Preparing' ? '#f8af1e' : 
+                               order.status === 'Cancelled' ? '#ef4444' : '#f8af1e';
             // Determine payment method display (use helper)
-            const methodIconMap = { gcash: 'wallet-outline', maya: 'phone-portrait-outline', paypal: 'logo-paypal' };
+            const methodIconMap = { cod: 'cash-outline', gcash: 'wallet-outline', maya: 'phone-portrait-outline', paypal: 'logo-paypal' };
             const methodId = order.paymentMethodId || null;
             const methodLabel = resolvePaymentLabel(order);
             const methodIcon = methodIconMap[methodId] || 'card-outline';
@@ -703,6 +743,7 @@ function showOrderStatus() {
                         <button onclick="showOrderItemsCustomer(${order.id})" style="background:transparent;color:#f8af1e;border:1px solid #f8af1e;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer;">View Items</button>
                     </div>` : `<div style="display:flex; gap:10px; margin-top:12px;">
                         <button onclick="showOrderItemsCustomer(${order.id})" style="background:transparent;color:#f8af1e;border:1px solid #f8af1e;padding:8px 12px;border-radius:8px;font-weight:700;cursor:pointer;">View Items</button>
+                        ${order.status !== 'Cancelled' && order.status !== 'Delivered' && order.status !== 'Shipping' && order.status !== 'Preparing' ? `<button onclick="cancelOrderCustomer(${order.id})" style="background:#ef4444;color:#ffffff;border:none;padding:10px 16px;border-radius:10px;font-weight:700;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,0.12);" onmouseover="this.style.background='#d63c3c'" onmouseout="this.style.background='#ef4444'">Cancel Order</button>` : ''}
                     </div>`}
                 </div>
             `;
@@ -753,8 +794,20 @@ function closeOrderStatusModal() {
 function showOrderItemsCustomer(orderId) {
     const orders = JSON.parse(localStorage.getItem('orders')) || [];
     const order = orders.find(o => o.id === orderId);
+    const currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
     if (!order) {
         showAlert('error', 'Order not found.');
+        return;
+    }
+    // Ensure customer can only view their own orders
+    if (currentUser) {
+        const ownerMatch = (order.customerEmail && currentUser.email && order.customerEmail === currentUser.email) || (order.customerName && currentUser.name && order.customerName === currentUser.name);
+        if (!ownerMatch) {
+            showAlert('error', 'You do not have access to view this order.');
+            return;
+        }
+    } else {
+        showAlert('error', 'Please login to view order details.');
         return;
     }
 
@@ -850,6 +903,61 @@ function showOrderItemsCustomer(orderId) {
     document.body.appendChild(modal);
 }
 
+// Customer action: cancel an order (sets status to 'Cancelled')
+function cancelOrderCustomer(orderId) {
+    let orders = JSON.parse(localStorage.getItem('orders')) || [];
+    const idx = orders.findIndex(o => o.id === orderId);
+    if (idx === -1) {
+        showAlert('error', 'Order not found.');
+        return;
+    }
+
+    const order = orders[idx];
+    if (order.status === 'Cancelled') {
+        showAlert('error', 'Order is already cancelled.');
+        return;
+    }
+    if (order.status === 'Delivered' || order.status === 'Shipping' || order.status === 'Preparing') {
+        showAlert('error', 'Orders that are preparing, shipping, or already delivered cannot be cancelled.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to cancel Order #${orderId}?`)) return;
+
+    orders[idx].status = 'Cancelled';
+    localStorage.setItem('orders', JSON.stringify(orders));
+
+    // Broadcast an update so other open tabs (admin/staff) can react via storage event
+    try { localStorage.setItem('orders_updated', String(Date.now())); } catch (e) { /* ignore */ }
+
+    showAlert('success', `Order #${orderId} has been cancelled.`);
+
+    // Persist cancelled order record for account view (keep a snapshot + metadata)
+    try {
+        const cancelled = JSON.parse(localStorage.getItem('cancelledOrders')) || [];
+        const currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+        cancelled.push({
+            id: order.id,
+            date: new Date().toISOString(),
+            cancelledBy: 'customer',
+            userEmail: currentUser ? currentUser.email : null,
+            userName: currentUser ? currentUser.name : (order.address && order.address.name ? order.address.name : null),
+            orderSnapshot: order
+        });
+        localStorage.setItem('cancelledOrders', JSON.stringify(cancelled));
+        // Signal cancelled orders update as well
+        try { localStorage.setItem('orders_updated', String(Date.now())); } catch (e) { /* ignore */ }
+    } catch (e) {
+        console.warn('Failed to persist cancelled order record', e);
+    }
+
+    // Refresh customer UI
+    closeOrderItemsModalCustomer();
+    closeOrderStatusModal();
+    // Reopen the order status modal to reflect change
+    setTimeout(() => showOrderStatus(), 150);
+}
+
 function closeOrderItemsModalCustomer() { const m = document.getElementById('orderItemsModalCustomer'); if (m) m.remove(); }
 
 // Handle Logout
@@ -872,13 +980,78 @@ function handleLogout() {
 // ============================================
 
 function initializeCart() {
-    if (!localStorage.getItem('cart')) {
-        localStorage.setItem('cart', JSON.stringify([]));
+    if (!localStorage.getItem(userKey('cart'))) {
+        localStorage.setItem(userKey('cart'), JSON.stringify([]));
+    }
+}
+
+// Seed default menu items with canonical categories if no menuItems exist yet.
+function seedMenuItemsIfEmpty() {
+    if (localStorage.getItem('menuItems')) return;
+
+    const seed = [
+        // Men's Hoodies
+        { id: 1, name: "Men's Loose Fit Hoodie", price: 999.00, category: "Men's Hoodies", image: '../static/images/products/Men\'s Loose Fit Hoodie.webp', available: true },
+        { id: 2, name: "Men's Loose Fit Printed Hoodie", price: 1790.00, category: "Men's Hoodies", image: '../static/images/products/Men\'s Loose Fit Printed Hoodie.webp', available: true },
+        { id: 3, name: "Men's Regular Fit Hoodie", price: 1790.00, category: "Men's Hoodies", image: '../static/images/products/Men\'s Regular Fit Hoodie.webp', available: true },
+        { id: 4, name: "Men's Regular Fit Printed Hoodie", price: 1490.00, category: "Men's Hoodies", image: '../static/images/products/Men\'s Regular Fit Printed Hoodie.webp', available: true },
+        // Women's Hoodies
+        { id: 5, name: "Women's Oversized Zip-Through Hoodie", price: 1490.00, category: "Women's Hoodies", image: '../static/images/products/Women\'s Oversized Zip-Through Hoodie.webp', available: true },
+        { id: 6, name: "Women's Hoodie", price: 999.00, category: "Women's Hoodies", image: '../static/images/products/Women\'s Hoodie.webp', available: true },
+        { id: 7, name: "Women's Zip-Through Hoodie", price: 999.00, category: "Women's Hoodies", image: '../static/images/products/Women\'s Zip-Through Hoodie.webp', available: true },
+        { id: 8, name: "Women's Hooded Top", price: 999.00, category: "Women's Hoodies", image: '../static/images/products/Women\'s Hooded Top.webp', available: true },
+        // Kids Hoodies
+        { id: 9, name: "Kids Motif-Detail Hoodie", price: 999.00, category: "Kid's Hoodies", image: '../static/images/products/Kids Motif-Detail Hoodie.webp', available: true },
+        { id: 10, name: "Kids Logo Zip Hoodie In Fleece", price: 1950.00, category: "Kid's Hoodies", image: '../static/images/products/Kids Logo Zip Hoodie In Fleece.webp', available: true },
+        { id: 11, name: "Kids Hoodie", price: 699.00, category: "Kid's Hoodies", image: '../static/images/products/Kids Hoodie.webp', available: true },
+        { id: 12, name: "Kids Zipped Hoodie", price: 1495.00, category: "Kid's Hoodies", image: '../static/images/products/Kids Zipped Hoodie.webp', available: true },
+        // Baby Hoodies
+        { id: 13, name: "Baby Cotton Hoodie", price: 1295.00, category: "Baby's Hoodies", image: '../static/images/products/Baby Cotton Hoodie.webp', available: true },
+        { id: 14, name: "Baby VintageSoft Logo Hoodie One-Piece", price: 2749.00, category: "Baby's Hoodies", image: '../static/images/products/Baby VintageSoft Logo Hoodie One-Piece.webp', available: true },
+        { id: 15, name: "Baby Printed Hoodie", price: 1295.00, category: "Baby's Hoodies", image: '../static/images/products/Baby Printed Hoodie.webp', available: true },
+        { id: 16, name: "Baby Appliquéd Fleece Hoodie", price: 1290.00, category: "Baby's Hoodies", image: '../static/images/products/Baby Appliquéd Fleece Hoodie.webp', available: true },
+        // Men's Sweatshirts
+        { id: 17, name: "Men's Loose Fit Sweatshirt", price: 999.00, category: "Men's Sweatshirts", image: '../static/images/products/Men\'s Loose Fit Sweatshirt.webp', available: true },
+        { id: 18, name: "Men's Oversized Fit Printed Sweatshirt", price: 1790.00, category: "Men's Sweatshirts", image: '../static/images/products/Men\'s Oversized Fit Printed Sweatshirt.webp', available: true },
+        { id: 19, name: "Men's Relaxed Fit Printed Sweatshirt", price: 1290.00, category: "Men's Sweatshirts", image: '../static/images/products/Men\'s Relaxed Fit Printed Sweatshirt.webp', available: true },
+        { id: 20, name: "Men's Regular Fit Sweatshirt", price: 1695.00, category: "Men's Sweatshirts", image: '../static/images/products/Men\'s Regular Fit Sweatshirt.webp', available: true },
+        // Women's Sweatshirts
+        { id: 21, name: "Women's Text-Motif Sweatshirt", price: 1490.00, category: "Women's Sweatshirts", image: '../static/images/products/Women\'s Text-Motif Sweatshirt.webp', available: true },
+        { id: 22, name: "Women's Oversized Sweatshirt", price: 799.00, category: "Women's Sweatshirts", image: '../static/images/products/Women\'s Oversized Sweatshirt.webp', available: true },
+        { id: 23, name: "Women's Printed Sweatshirt", price: 1490.00, category: "Women's Sweatshirts", image: '../static/images/products/Women\'s Printed Sweatshirt.webp', available: true },
+        { id: 24, name: "Women's Oversized Motif-Detail Sweatshirt", price: 899.00, category: "Women's Sweatshirts", image: '../static/images/products/Women\'s Oversized Motif-Detail Sweatshirt.webp', available: true },
+        // Kids Sweatshirts
+        { id: 25, name: "Kids Cotton Sweatshirt", price: 699.00, category: "Kid's Sweatshirts", image: '../static/images/products/Kids Cotton Sweatshirt.webp', available: true },
+        { id: 26, name: "Kids Oversized Crew Sweatshirt", price: 890.00, category: "Kid's Sweatshirts", image: '../static/images/products/Kids Oversized Crew Sweatshirt.webp', available: true },
+        { id: 27, name: "Kids Graphic Print Sweatshirt", price: 1409.00, category: "Kid's Sweatshirts", image: '../static/images/products/Kids Graphic Print Sweatshirt.webp', available: true },
+        { id: 28, name: "Kids Oversized Print-Motif Sweatshirt", price: 999.00, category: "Kid's Sweatshirts", image: '../static/images/products/Kids Oversized Print-Motif Sweatshirt.webp', available: true },
+        // Baby Sweatshirts
+        { id: 29, name: "Baby Embroidered Teddy Sweatshirt", price: 799.00, category: "Baby's Sweatshirts", image: '../static/images/products/Baby Embroidered Teddy Sweatshirt.webp', available: true },
+        { id: 30, name: "Baby Sweatshirt With Embroidered Teddy Bear", price: 895.00, category: "Baby's Sweatshirts", image: '../static/images/products/Baby Sweatshirt With Embroidered Teddy Bear.webp', available: true },
+        { id: 31, name: "Baby Oversized Sweatshirt", price: 745.00, category: "Baby's Sweatshirts", image: '../static/images/products/Baby Oversized Sweatshirt.webp', available: true },
+        { id: 32, name: "Baby Palm Trees Printed Sweatshirt", price: 1295.00, category: "Baby's Sweatshirts", image: '../static/images/products/Baby Palm Trees Printed Sweatshirt.webp', available: true }
+    ];
+
+    try {
+        localStorage.setItem('menuItems', JSON.stringify(seed));
+        console.log('Default menuItems seeded.');
+    } catch (e) {
+        console.warn('Failed to seed menuItems', e);
     }
 }
 
 function addToCart(item) {
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    let cart = getCart();
+    // Enrich the cart item with menu metadata (id, category, price) when available
+    try {
+        const menuItems = JSON.parse(localStorage.getItem('menuItems')) || [];
+        const match = menuItems.find(m => ((m.id !== undefined && m.id === item.id) || ((m.name || '').toLowerCase() === (item.name || '').toLowerCase())));
+        if (match) {
+            if (!item.id && match.id !== undefined) item.id = match.id;
+            if (!item.category && match.category) item.category = match.category;
+            if (!item.price && match.price !== undefined) item.price = match.price;
+        }
+    } catch (e) { console.warn('Failed to enrich cart item', e); }
     
     // Check if an identical item (same name + variant) already exists in cart
     // Compare name + color + size when available to avoid merging different variants
@@ -896,7 +1069,7 @@ function addToCart(item) {
         cart.push(item);
     }
     
-    localStorage.setItem('cart', JSON.stringify(cart));
+    setCart(cart);
     updateCartBadge();
 }
 
@@ -1228,7 +1401,7 @@ function showVariantPicker(item, callback) {
 }
 
 function updateCartBadge() {
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
+    const cart = getCart();
     const totalItems = cart.reduce((sum, item) => sum + (item.quantity || 1), 0);
     
     const cartIcon = document.querySelector('.icons ion-icon[name="cart-outline"]');
@@ -1266,7 +1439,7 @@ function updateCartBadge() {
 }
 
 function viewCart() {
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
+    const cart = getCart();
     
     let cartHTML = `
         <div style="
@@ -1618,7 +1791,7 @@ function viewCart() {
 }
 
 function updateQuantity(index, change) {
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    let cart = getCart();
     
     if (cart[index]) {
         cart[index].quantity = (cart[index].quantity || 1) + change;
@@ -1628,7 +1801,7 @@ function updateQuantity(index, change) {
             cart.splice(index, 1);
         }
         
-        localStorage.setItem('cart', JSON.stringify(cart));
+        setCart(cart);
         
         // Refresh cart view
         closeCart();
@@ -1642,9 +1815,9 @@ function updateQuantity(index, change) {
 }
 
 function removeFromCart(index) {
-    let cart = JSON.parse(localStorage.getItem('cart')) || [];
+    let cart = getCart();
     cart.splice(index, 1);
-    localStorage.setItem('cart', JSON.stringify(cart));
+    setCart(cart);
     
     // Close and reopen cart to refresh
     closeCart();
@@ -1664,7 +1837,7 @@ function closeCart() {
 }
 
 function checkout() {
-    const cart = JSON.parse(localStorage.getItem('cart')) || [];
+    const cart = getCart();
     let total = 0;
     cart.forEach(item => {
     const price = parseFloat(String(item.price).replace(/[^0-9.-]+/g, ''));
@@ -1677,8 +1850,8 @@ function checkout() {
 }
 
 function showShippingAddressForm(total) {
-    // Get saved addresses
-    const savedAddresses = JSON.parse(localStorage.getItem('shippingAddresses')) || [];
+    // Get saved addresses (user-scoped)
+    const savedAddresses = getShippingAddresses();
     const defaultAddress = savedAddresses.find(addr => addr.isDefault) || savedAddresses[0];
     
     let formHTML = `
@@ -1725,11 +1898,17 @@ function showShippingAddressForm(total) {
         `;
         
         savedAddresses.forEach((addr, index) => {
+            // Check if this saved address is within Batangas delivery area and province is Batangas
+            const deliverableKey = resolveShippingKey(addr.city);
+            const provinceOk = isProvinceBatangas(addr.state);
+            const isDeliverable = !!deliverableKey && provinceOk;
+
             formHTML += `
                 <div class="address-card" style="background: rgba(255, 255, 255, 0.05); border: ${addr.isDefault ? '2px solid #f8af1e' : '1px solid rgba(255, 255, 255, 0.08)'}; position: relative;">
                     ${addr.isDefault ? '<span style="position: absolute; top: 10px; right: 10px; background: #f8af1e; color: #000; padding: 4px 10px; border-radius: 5px; font-size: 0.75rem; font-weight: 700;">DEFAULT</span>' : ''}
-                    <div style="margin-bottom: 10px;">
+                    <div style="margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
                         <strong style="color: white; font-size: 1.1rem;">${addr.name}</strong>
+                        ${isDeliverable ? '' : '<span style="background:#ef4444;color:#fff;padding:4px 8px;border-radius:6px;font-size:0.75rem;">Outside delivery area</span>'}
                     </div>
                     <p style="color: rgba(255,255,255,0.7); margin: 5px 0; line-height: 1.6;">
                         ${addr.address}<br>
@@ -1738,16 +1917,16 @@ function showShippingAddressForm(total) {
                         Phone: ${addr.phone}
                     </p>
                     <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button onclick="useThisAddress(${index}, ${total})" style="
-                            background: #f8af1e;
-                            color: #000;
+                        <button ${isDeliverable ? `onclick="useThisAddress(${index}, ${total})"` : 'disabled'} style="
+                            background: ${isDeliverable ? '#f8af1e' : 'rgba(255,255,255,0.06)'};
+                            color: ${isDeliverable ? '#000' : 'rgba(255,255,255,0.5)'};
                             border: none;
                             padding: 8px 16px;
                             border-radius: 8px;
-                            cursor: pointer;
+                            cursor: ${isDeliverable ? 'pointer' : 'not-allowed'};
                             font-weight: 600;
                             font-size: 0.9rem;
-                        " onmouseover="this.style.background='#e48a0a'" onmouseout="this.style.background='#f8af1e'">
+                        " onmouseover="if(this.disabled===false) this.style.background='#e48a0a'" onmouseout="if(this.disabled===false) this.style.background='#f8af1e'">
                             <ion-icon name="checkmark-outline" style="vertical-align: middle;"></ion-icon> Use This
                         </button>
                         <button onclick="editAddress(${index})" style="
@@ -1816,11 +1995,11 @@ function showShippingAddressForm(total) {
                             </div>
                             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
                                 <div>
-                                    <label style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 5px; font-weight: 500;">City *</label>
+                                    <label style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 5px; font-weight: 500;">Municipality *</label>
                                     <input type="text" id="addr_city" required style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 1rem;" value="${defaultAddress?.city || ''}">
                                 </div>
                                 <div>
-                                    <label style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 5px; font-weight: 500;">State/Province *</label>
+                                    <label style="color: rgba(255,255,255,0.8); display: block; margin-bottom: 5px; font-weight: 500;">Province *</label>
                                     <input type="text" id="addr_state" required style="width: 100%; padding: 12px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; color: white; font-size: 1rem;" value="${defaultAddress?.state || ''}">
                                 </div>
                             </div>
@@ -1919,7 +2098,7 @@ function saveNewAddress(event, total) {
         isDefault: document.getElementById('addr_default').checked
     };
     
-    let addresses = JSON.parse(localStorage.getItem('shippingAddresses')) || [];
+    let addresses = getShippingAddresses();
     
     // If this is default, remove default from others
     if (newAddress.isDefault) {
@@ -1927,20 +2106,20 @@ function saveNewAddress(event, total) {
     }
     
     addresses.push(newAddress);
-    localStorage.setItem('shippingAddresses', JSON.stringify(addresses));
+    setShippingAddresses(addresses);
     
     // Complete checkout with new address
     completeCheckout(newAddress, total);
 }
 
 function useThisAddress(index, total) {
-    const addresses = JSON.parse(localStorage.getItem('shippingAddresses')) || [];
+    const addresses = getShippingAddresses();
     const selectedAddress = addresses[index];
     completeCheckout(selectedAddress, total);
 }
 
 function editAddress(index) {
-    const addresses = JSON.parse(localStorage.getItem('shippingAddresses')) || [];
+    const addresses = getShippingAddresses();
     const address = addresses[index];
     
     // Show the form with pre-filled data
@@ -1965,14 +2144,14 @@ function deleteAddress(index, silent = false) {
         return;
     }
     
-    let addresses = JSON.parse(localStorage.getItem('shippingAddresses')) || [];
+    let addresses = getShippingAddresses();
     addresses.splice(index, 1);
-    localStorage.setItem('shippingAddresses', JSON.stringify(addresses));
+    setShippingAddresses(addresses);
     
     if (!silent) {
         // Refresh the form
         closeShippingForm();
-        const cart = JSON.parse(localStorage.getItem('cart')) || [];
+        const cart = getCart();
         let total = 0;
         cart.forEach(item => {
             const price = parseFloat(String(item.price).replace(/[^0-9.-]+/g, ''));
@@ -1983,18 +2162,136 @@ function deleteAddress(index, silent = false) {
 }
 
 function completeCheckout(address, total) {
-    // Close shipping form and show payment options
+    // Close shipping form, determine shipping city, and show payment options
     closeShippingForm();
+
+    // Resolve the provided address.city to a supported Batangas municipality key
+    const rawCity = address && address.city ? address.city : null;
+    const resolvedKey = resolveShippingKey(rawCity);
+
+    if (!resolvedKey) {
+        // Block checkout if shipping city is not supported
+        alert('Shipping is only available within Batangas municipalities. Please provide an address within Batangas or contact support for assistance.');
+        return;
+    }
+
+    // Ensure the provided province/state is actually Batangas when the city resolves to a Batangas municipality
+    const province = address && address.state ? address.state : null;
+    if (!isProvinceBatangas(province)) {
+        alert('The municipality you entered is in Batangas, but the province field is not Batangas. Please correct the province to "Batangas".');
+        return;
+    }
+
+    // Store the resolved key so getShippingFee can look it up directly
+    currentShippingCity = resolvedKey;
     showPaymentOptions(address, total);
 }
 
 // Shipping fee helper (fixed)
+// Shipping rates for Batangas municipalities (₱)
+const BATANGAS_SHIPPING_RATES = {
+    'agoncillo': 45,
+    'alitagtag': 60,
+    'balayan': 70,
+    'balete': 55,
+    'batangas city': 80,
+    'bauan': 65,
+    'calaca': 75,
+    'calatagan': 95,
+    'cuenca': 60,
+    'ibaan': 55,
+    'laurel': 70,
+    'lemery': 85,
+    'lian': 90,
+    'lipa city': 85,
+    'lobo': 100,
+    'mabini': 50,
+    'malvar': 65,
+    'mataasnakahoy': 55,
+    'nasugbu': 100,
+    'padre garcia': 60,
+    'rosario': 70,
+    'san jose': 65,
+    'san juan': 95,
+    'san luis': 55,
+    'san nicolas': 50,
+    'san pascual': 60,
+    'santa teresita': 50,
+    'santo tomas city': 80,
+    'taal': 65,
+    'talisay': 70,
+    'tanauan city': 75,
+    'taysan': 80,
+    'tingloy': 110,
+    'tuy': 85
+};
+
+// currentShippingCity is set during checkout (see completeCheckout)
+let currentShippingCity = null;
+
+// Shipping fee helper — returns numeric fee if city is supported, otherwise undefined
+// Normalize and resolve different city name variants to a BATANGAS_SHIPPING_RATES key
+function resolveShippingKey(city) {
+    if (!city) return null;
+    let s = String(city).trim().toLowerCase();
+    // Remove punctuation
+    s = s.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+    s = s.replace(/\s+/g, ' ').trim();
+
+    // Direct match
+    if (BATANGAS_SHIPPING_RATES[s] !== undefined) return s;
+
+    // Common normalization: strip words like 'city', 'municipality', 'municipal', 'town'
+    const stripped = s.replace(/\b(city|municipality|municipal|town|township)\b/g, '').replace(/\s+/g, ' ').trim();
+    if (BATANGAS_SHIPPING_RATES[stripped] !== undefined) return stripped;
+
+    // Try adding ' city' suffix for names often entered without it
+    const withCity = `${stripped} city`;
+    if (BATANGAS_SHIPPING_RATES[withCity] !== undefined) return withCity;
+
+    // Common aliases mapping (map user-entered city -> key in rates)
+    const ALIASES = {
+        'batangas': 'batangas city',
+        'lipa': 'lipa city',
+        'tanauan': 'tanauan city',
+        'santo tomas': 'santo tomas city',
+        'santo tomas city': 'santo tomas city',
+        'mabini batangas': 'mabini',
+        'anilao': 'mabini'
+    };
+    if (ALIASES[s]) return ALIASES[s];
+
+    // If nothing matched, attempt to find a key that contains the base word
+    const base = stripped.split(' ')[0];
+    for (const key of Object.keys(BATANGAS_SHIPPING_RATES)) {
+        if (key.includes(base)) return key;
+    }
+
+    return null;
+}
+
 function getShippingFee() {
-    return 60.00; 
+    if (!currentShippingCity) return undefined;
+    const key = String(currentShippingCity).trim().toLowerCase();
+    return BATANGAS_SHIPPING_RATES[key];
+}
+
+// Normalize province/state and check whether it represents Batangas
+function isProvinceBatangas(state) {
+    if (!state) return false;
+    let s = String(state).trim().toLowerCase();
+    s = s.replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, '');
+    s = s.replace(/\s+/g, ' ').trim();
+    // strip common words
+    s = s.replace(/\b(province|prov|provincial)\b/g, '').replace(/\s+/g, ' ').trim();
+    // direct match or contains 'batangas'
+    if (s === 'batangas' || s.includes('batangas')) return true;
+    return false;
 }
 
 function showPaymentOptions(address, total) {
     const paymentMethods = [
+        { id: 'cod', name: 'Cash on Delivery', icon: 'cash-outline' },
         { id: 'gcash', name: 'GCash', icon: 'wallet-outline' },
         { id: 'maya', name: 'Maya', icon: 'phone-portrait-outline' },
         { id: 'paypal', name: 'PayPal', icon: 'logo-paypal' }
@@ -2234,8 +2531,27 @@ function confirmPayment(total, address) {
     // Process payment
     closePaymentForm();
 
-    // Capture cart items before clearing so we can persist them on the order
-    const cartItems = JSON.parse(localStorage.getItem('cart')) || [];
+    // Capture cart items (user-scoped) before clearing so we can persist them on the order
+    const cartItems = getCart();
+    // Ensure cart items include menu metadata (id, category, price) in case they were not enriched earlier
+    const enrichedItems = (cartItems || []).map(it => {
+        try {
+            const menuItems = JSON.parse(localStorage.getItem('menuItems')) || [];
+            const match = menuItems.find(m => ((m.id !== undefined && m.id === it.id) || ((m.name || '').toLowerCase() === (it.name || '').toLowerCase())));
+            if (match) {
+                return {
+                    ...it,
+                    id: it.id !== undefined ? it.id : match.id,
+                    category: it.category || match.category || it.category,
+                    price: it.price || match.price
+                };
+            }
+        } catch (e) { /* ignore */ }
+        return it;
+    });
+
+    // Capture current user (if any) for order attribution
+    const currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
 
     // Save order to localStorage
     let orders = JSON.parse(localStorage.getItem('orders')) || [];
@@ -2257,12 +2573,16 @@ function confirmPayment(total, address) {
     paymentMethod: paymentMethodNameToSave,
         status: 'Processing',
         // Persist the ordered items so admin/staff can review them
-        items: cartItems
+        items: enrichedItems
+        ,
+        // Associate order with the logged-in customer's email and name when available
+        customerEmail: currentUser ? currentUser.email : null,
+        customerName: currentUser ? currentUser.name : null
     });
     localStorage.setItem('orders', JSON.stringify(orders));
 
     // Clear cart after saving the order
-    localStorage.setItem('cart', JSON.stringify([]));
+    setCart([]);
     updateCartBadge();
     
     // Use resolved friendly name to avoid 'via null' or raw ids
@@ -2428,6 +2748,28 @@ document.addEventListener('DOMContentLoaded', function() {
 window.addEventListener('storage', function(e) {
     if (e.key === 'menuItems') {
         applyAvailabilityUI();
+    }
+
+    // Refresh customer-facing order views when orders change in another tab (admin action)
+    if (e.key === 'orders' || e.key === 'orders_updated') {
+        try {
+            // If Order Status modal is open, re-render it to reflect cancellations
+            if (document.getElementById('orderStatusModal')) {
+                try { closeOrderStatusModal(); } catch (err) { /* ignore */ }
+                try { showOrderStatus(); } catch (err) { /* ignore */ }
+            }
+
+            // If Cancelled Orders modal is open, refresh it as well
+            if (document.getElementById('cancelledOrdersModal')) {
+                try { closeCancelledOrdersModal(); } catch (err) { /* ignore */ }
+                try { showCancelledOrders(); } catch (err) { /* ignore */ }
+            }
+
+            // Update cart badge or any other dependent UI
+            try { updateCartBadge(); } catch (err) { /* ignore */ }
+        } catch (err) {
+            console.warn('Failed to refresh order views after storage event', err);
+        }
     }
 });
 
@@ -2640,7 +2982,7 @@ function normalizeExistingOrders() {
                     changed = true;
                 }
                 // Map friendly name back to canonical id
-                const nameToId = { 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
+                            const nameToId = { 'Cash on Delivery': 'cod', 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
                 const id = nameToId[resolved] || (typeof updated.paymentMethodId === 'string' ? updated.paymentMethodId : null);
                 if (id && updated.paymentMethodId !== id) {
                     updated.paymentMethodId = id;
@@ -2655,7 +2997,7 @@ function normalizeExistingOrders() {
                         if (fix && fix !== 'Unknown') {
                             updated.paymentMethodName = fix;
                             updated.paymentMethod = fix;
-                            const nameToId = { 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
+                            const nameToId = { 'Cash on Delivery': 'cod', 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
                             updated.paymentMethodId = nameToId[fix] || String(maybeId);
                             changed = true;
                         }
@@ -2704,11 +3046,13 @@ function resolvePaymentLabel(order) {
     ].join(' ').toLowerCase();
 
     const norm = candidates.replace(/[^a-z0-9]/g, '');
+    if (norm.includes('cod') || (norm.includes('cash') && norm.includes('delivery'))) return 'Cash on Delivery';
     if (norm.includes('gcash')) return 'GCash';
     if (norm.includes('paymaya') || norm.includes('maya')) return 'Maya';
     if (norm.includes('paypal')) return 'PayPal';
 
     const direct = (asString(order.paymentMethodName) || asString(order.paymentMethod) || asString(order.paymentMethodId) || '').trim().toLowerCase();
+    if (direct === 'cod' || direct === 'cashondelivery' || direct === 'cash on delivery') return 'Cash on Delivery';
     if (direct === 'gcash') return 'GCash';
     if (direct === 'maya' || direct === 'paymaya') return 'Maya';
     if (direct === 'paypal') return 'PayPal';
@@ -2731,7 +3075,7 @@ function confirmReceived(orderId) {
     order.confirmedReceived = true;
     order.confirmedDate = new Date().toISOString();
 
-    // prepare purchase entry
+    // prepare purchase entry (attach user attribution)
     const purchaseEntry = {
         id: order.id,
         date: order.confirmedDate,
@@ -2740,13 +3084,15 @@ function confirmReceived(orderId) {
         items: order.items || order.cart || [],
         paymentMethodId: order.paymentMethodId || order.paymentMethod || null,
         paymentMethodName: order.paymentMethodName || order.paymentMethod || null,
-        address: order.address || null
+        address: order.address || null,
+        userEmail: order.customerEmail || (JSON.parse(localStorage.getItem('currentUser')) || {}).email || null,
+        userName: order.customerName || (JSON.parse(localStorage.getItem('currentUser')) || {}).name || null
     };
 
-    // save purchase history
-    const history = JSON.parse(localStorage.getItem('purchaseHistory')) || [];
+    // save purchase history to user-scoped storage
+    const history = getPurchaseHistory();
     history.push(purchaseEntry);
-    localStorage.setItem('purchaseHistory', JSON.stringify(history));
+    setPurchaseHistory(history);
 
     // persist updated orders
     localStorage.setItem('orders', JSON.stringify(orders));
@@ -2760,7 +3106,7 @@ function confirmReceived(orderId) {
 
 // Show Purchase History modal for customers
 function showPurchaseHistory() {
-    const history = JSON.parse(localStorage.getItem('purchaseHistory')) || [];
+    const history = getPurchaseHistory();
 
     let html = `
         <div class="shipping-address-form" style="color: white; backdrop-filter: blur(20px); max-height: 90vh; display: flex; flex-direction: column;">
@@ -2804,7 +3150,9 @@ function showPurchaseHistory() {
         html += `</div>`;
     }
 
-    html += `</div>`;
+        // (Cancelled Orders section removed from Purchase History - kept customer purchase history focused)
+
+        html += `</div>`;
 
     const modal = document.createElement('div');
     modal.id = 'purchaseHistoryModal';
@@ -2815,6 +3163,137 @@ function showPurchaseHistory() {
 }
 
 function closePurchaseHistoryModal() { const m = document.getElementById('purchaseHistoryModal'); if (m) m.remove(); }
+
+// Show Cancelled Orders modal (customer-facing)
+function showCancelledOrders() {
+    const currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+    const cancelled = JSON.parse(localStorage.getItem('cancelledOrders')) || [];
+    const myCancelled = cancelled.filter(c => {
+        if (!currentUser) return false;
+        if (c.userEmail && currentUser.email && c.userEmail === currentUser.email) return true;
+        if (c.userName && currentUser.name && c.userName === currentUser.name) return true;
+        return false;
+    });
+
+    let html = `
+        <div class="shipping-address-form" style="color: white; backdrop-filter: blur(20px); max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 2px solid #f8af1e;">
+                <h2 style="color: #f8af1e; margin: 0; font-size: 2rem; font-weight: 700; display: flex; align-items: center; gap: 10px;">
+                    <ion-icon name="close-circle-outline" style="font-size: 2rem;"></ion-icon>
+                    Cancelled Orders
+                </h2>
+                <button onclick="closeCancelledOrdersModal()" style="background: transparent; border: none; color: #f8af1e; font-size: 2rem; cursor: pointer; padding: 0; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.2)'" onmouseout="this.style.transform='scale(1)'"><ion-icon name="close-outline"></ion-icon></button>
+            </div>
+    `;
+
+    if (myCancelled.length === 0) {
+        html += `
+            <div style="text-align: center; padding: 50px 20px; color: rgba(255,255,255,0.9);">
+                <div style="width:84px; height:84px; margin:0 auto 20px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                    <div style="width:72px; height:72px; border-radius:50%; border:6px solid rgba(239,68,68,0.18); display:flex; align-items:center; justify-content:center; background: rgba(0,0,0,0.2);">
+                        <ion-icon name="close-outline" style="font-size:36px; color: rgba(239,68,68,0.95);"></ion-icon>
+                    </div>
+                </div>
+                <h3 style="color: #ffffff; font-size: 1.6rem; font-weight: 800; margin: 0 0 10px;">No Cancelled Orders</h3>
+                <p style="color: rgba(255,255,255,0.65); margin: 0 0 24px; font-size: 1rem;">You have no cancelled orders yet.</p>
+                <button onclick="closeCancelledOrdersModal()" style="background: #f8af1e; color: #000; border: none; padding: 12px 36px; border-radius: 12px; font-weight: 800; cursor: pointer; font-size: 1rem;">Close</button>
+            </div>
+        `;
+    } else {
+        html += `<div style="flex:1; overflow-y:auto; padding-right:8px;">`;
+        myCancelled.slice().reverse().forEach(c => {
+            const d = new Date(c.date);
+            const total = (c.orderSnapshot && (c.orderSnapshot.total || c.orderSnapshot.total === 0)) ? c.orderSnapshot.total : (c.orderSnapshot && c.orderSnapshot.subtotal ? (c.orderSnapshot.subtotal + (c.orderSnapshot.shippingFee||0)) : 0);
+            html += `
+                <div style="background: rgba(255,255,255,0.05); padding: 12px; border-radius: 10px; margin-bottom: 12px; border:1px solid rgba(255,255,255,0.06);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div>
+                            <p style="color: rgba(255,255,255,0.6); margin:0; font-size:0.85rem;">Order #${c.id}</p>
+                            <p style="color:white; margin:0; font-size:1.05rem; font-weight:600;">₱${formatCurrency(total)}</p>
+                        </div>
+                        <p style="color: rgba(255,255,255,0.7); margin:0; font-size:0.85rem;">${d.toLocaleDateString()} • ${c.cancelledBy === 'admin' ? 'Cancelled by staff' : 'Cancelled by you'}</p>
+                    </div>
+                    <div style="color: rgba(255,255,255,0.7); font-size:0.95rem; margin-top:6px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>${c.orderSnapshot && c.orderSnapshot.items ? (c.orderSnapshot.items.length + ' items') : ''}</div>
+                        <div>
+                            <button onclick="(function(id){ showCancelledOrderItems(id); })(${c.id})" style="background: transparent; color: #f8af1e; border: 1px solid #f8af1e; padding:6px 10px; border-radius:8px; cursor:pointer; font-weight:700;">View Items</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+
+    html += `</div>`;
+
+    const modal = document.createElement('div');
+    modal.id = 'cancelledOrdersModal';
+    modal.style.cssText = `position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.92); z-index:10000; display:flex; align-items:center; justify-content:center; overflow-y:auto; padding:20px 0;`;
+    modal.innerHTML = html;
+    modal.addEventListener('click', function(e){ if (e.target === modal) closeCancelledOrdersModal(); });
+    document.body.appendChild(modal);
+}
+
+function closeCancelledOrdersModal() { const m = document.getElementById('cancelledOrdersModal'); if (m) m.remove(); }
+
+// helper to show items for a cancelled order by id (uses snapshot data)
+function showCancelledOrderItems(orderId) {
+    const cancelled = JSON.parse(localStorage.getItem('cancelledOrders')) || [];
+    const entry = cancelled.find(c => c.id === orderId) || null;
+    const currentUser = JSON.parse(localStorage.getItem('currentUser')) || null;
+    if (!entry || !entry.orderSnapshot) { showAlert('error', 'Order details not found.'); return; }
+    // Ensure only the owner can view cancelled order details
+    if (currentUser) {
+        const ownerMatch = (entry.userEmail && currentUser.email && entry.userEmail === currentUser.email) || (entry.userName && currentUser.name && entry.userName === currentUser.name);
+        if (!ownerMatch) { showAlert('error', 'You do not have access to view this order.'); return; }
+    } else {
+        showAlert('error', 'Please login to view order details.'); return;
+    }
+    const items = entry.orderSnapshot.items || entry.orderSnapshot.cart || [];
+    // reuse existing showOrderItemsCustomer-like modal but with supplied items
+    let html = `
+        <div class="shipping-address-form" style="color: white; backdrop-filter: blur(20px); max-height: 90vh; display: flex; flex-direction: column;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; padding-bottom:12px; border-bottom:2px solid #f8af1e;">
+                <h2 style="color:#f8af1e; margin:0; font-size:1.5rem; display:flex; align-items:center; gap:10px;"><ion-icon name="cube-outline" style="font-size:1.6rem"></ion-icon> Cancelled Order Items</h2>
+                <button onclick="closeCancelledOrderItemsModal()" style="background:transparent; border:none; color:#f8af1e; font-size:1.6rem; cursor:pointer;"><ion-icon name="close-outline"></ion-icon></button>
+            </div>
+            <div style="flex:1; overflow-y:auto;">
+    `;
+
+    if (!items || items.length === 0) {
+        html += `<div style="text-align:center; padding:40px; color: rgba(255,255,255,0.7);"><ion-icon name="help-circle-outline" style="font-size:3rem; margin-bottom:10px;"></ion-icon><p>No item details saved for this order.</p></div>`;
+    } else {
+        html += `<div style="display:flex; flex-direction:column; gap:12px;">`;
+        items.forEach(it => {
+            const price = parseFloat(String(it.price || it.unitPrice || '0').replace(/[^0-9.-]+/g, '')) || 0;
+            const qty = it.quantity || 1;
+            const itemTotal = price * qty;
+            const variantInfo = ((it.color || it.size) ? `<div style="color: rgba(255,255,255,0.6); font-size:0.95rem; margin-top:6px;">${it.color ? 'Color: ' + it.color : ''}${(it.color && it.size) ? ' | ' : ''}${it.size ? 'Size: ' + it.size : ''}</div>` : '');
+            html += `
+                <div style="background: rgba(255,255,255,0.03); padding:12px; border-radius:10px; display:flex; justify-content:space-between; align-items:center;">
+                    <div style="display:flex; gap:12px; align-items:center; min-width:0;">
+                        <img src="${it.image || '../static/images/placeholder.jpg'}" alt="${it.name}" style="width:56px; height:56px; object-fit:cover; border-radius:8px;">
+                        <div style="min-width:0;"><div style="font-weight:700; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${it.name}</div><div style="color:rgba(255,255,255,0.65); font-size:0.9rem;">₱${formatCurrency(price)} × ${qty}</div>${variantInfo}</div>
+                    </div>
+                    <div style="font-weight:700; color:#f8af1e;">₱${formatCurrency(itemTotal)}</div>
+                </div>
+            `;
+        });
+        html += `</div>`;
+    }
+
+    html += `</div><div style="display:flex; gap:10px; margin-top:12px;"><button onclick="closeCancelledOrderItemsModal()" style="background:#f8af1e; color:#000; border:none; padding:10px 14px; border-radius:8px; font-weight:700; cursor:pointer;">Close</button></div></div>`;
+
+    const modal = document.createElement('div');
+    modal.id = 'cancelledOrderItemsModal';
+    modal.style.cssText = `position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.92); z-index:10001; display:flex; align-items:center; justify-content:center; overflow-y:auto; padding:20px 0;`;
+    modal.innerHTML = html;
+    modal.addEventListener('click', function(e){ if (e.target === modal) closeCancelledOrderItemsModal(); });
+    document.body.appendChild(modal);
+}
+
+function closeCancelledOrderItemsModal() { const m = document.getElementById('cancelledOrderItemsModal'); if (m) m.remove(); }
 
 // ============================================
 // FAQ COLLAPSE/EXPAND
