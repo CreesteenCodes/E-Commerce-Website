@@ -26,6 +26,7 @@
             <a href="#" id="viewMenuNavLink" onclick="showViewMenu(); return false;" style="display: none;">View Products</a>
             <a href="#" id="menuManagementNavLink" onclick="showMenuManagement(); return false;" style="display: none;">Products</a>
             <a href="#" id="userManagementNavLink" onclick="showUserManagement(); return false;" style="display: none;">Users</a>
+            <a href="#" id="analyticsNavLink" onclick="showAnalytics(); return false;" style="display: none;">Analytics</a>
             <div class="dropdown account-dropdown">
                 <a href="#" class="dropdown-toggle" id="staffUserName">Account <ion-icon name="chevron-down-outline"></ion-icon></a>
                 <div class="dropdown-menu">
@@ -108,8 +109,10 @@
                 <div class="orders-filters">
                     <button class="filter-btn active" onclick="filterOrders('all')">All Orders</button>
                     <button class="filter-btn" onclick="filterOrders('Processing')">Processing</button>
+                    <button class="filter-btn" onclick="filterOrders('Preparing')">Preparing</button>
                     <button class="filter-btn" onclick="filterOrders('Shipping')">Shipping</button>
                     <button class="filter-btn" onclick="filterOrders('Delivered')">Delivered</button>
+                    <button class="filter-btn" onclick="filterOrders('Cancelled')">Cancelled</button>
                 </div>
 
                 <div id="ordersList" class="orders-list">
@@ -210,6 +213,22 @@
                 </div>
             </div>
 
+            <!-- Analytics (Admin) -->
+            <div id="analyticsContent" class="dashboard-content" style="display: none;">
+                <div class="dashboard-header">
+                    <h1>Sales Analytics</h1>
+                    <p>Revenue and Product Performance</p>
+                </div>
+
+                <div id="analyticsArea" style="display:flex; flex-direction:column; gap:18px;">
+                    <!-- JS will populate analyticsArea with KPI cards and simple charts -->
+                    <div id="analyticsPlaceholder" style="text-align:center; padding:40px; color:rgba(255,255,255,0.6);">
+                        <ion-icon name="pie-chart-outline" style="font-size:3rem; margin-bottom:12px;"></ion-icon>
+                        <p>Loading analytics...</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </section>
 
@@ -240,4 +259,3 @@
     <script src="../static/js/dashboard.js"></script>
 </body>
 </html>
-
