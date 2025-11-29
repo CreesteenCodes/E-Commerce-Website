@@ -25,6 +25,9 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('ordersNavLink').style.display = 'block';
         document.getElementById('menuManagementNavLink').style.display = 'block';
         document.getElementById('userManagementNavLink').style.display = 'block';
+        // Show Analytics link for administrators
+        const analyticsNav = document.getElementById('analyticsNavLink');
+        if (analyticsNav) analyticsNav.style.display = 'block';
     }
     
     // Initialize dashboard
@@ -32,12 +35,35 @@ document.addEventListener('DOMContentLoaded', function() {
     normalizeOrdersForDashboard();
     loadDashboardStats();
     loadRecentOrders();
+    // If admin, load analytics widgets as well
+    try {
+        if (staff.role === 'admin') loadAnalytics();
+    } catch (e) { /* ignore if analytics not present */ }
     
     // Setup dropdown click handler
     setupDropdownHandler();
     
     // Setup mobile menu toggle for dashboard
     setupMobileMenuToggle();
+
+    // Listen for order changes from other tabs/windows and refresh dashboard data
+    window.addEventListener('storage', function(e) {
+        if (!e.key) return;
+        if (e.key === 'orders' || e.key === 'orders_updated') {
+            // Refresh visible dashboard sections so admin/staff see changes immediately
+            try {
+                loadDashboardStats();
+                loadRecentOrders();
+                try { loadAnalytics(); } catch (e) { /* ignore */ }
+                const ordersContent = document.getElementById('ordersContent');
+                if (ordersContent && ordersContent.style.display === 'block') {
+                    loadAllOrders();
+                }
+            } catch (err) {
+                console.warn('Error refreshing dashboard after storage event', err);
+            }
+        }
+    });
 });
 
 function setupMobileMenuToggle() {
@@ -119,7 +145,15 @@ function formatCurrency(n) {
 
 function showDashboard() {
     hideAllContent();
-    document.getElementById('dashboardContent').style.display = 'block';
+    // Show the main dashboard content and refresh dynamic data so returning
+    // to this view reflects the latest orders, stats and recent activity
+    const dashboardContent = document.getElementById('dashboardContent');
+    if (dashboardContent) dashboardContent.style.display = 'block';
+
+    const currentStaff = JSON.parse(localStorage.getItem('currentStaff')) || {};
+    const isAdmin = currentStaff.role === 'admin' || false;
+
+    // Reload stats and lists so the dashboard shows up-to-date information
     loadDashboardStats();
     loadRecentOrders();
 }
@@ -158,6 +192,321 @@ function showUserManagement() {
     showUserTab('customers');
 }
 
+// Show Analytics (Admin only) and kick off loading of analytics widgets
+function showAnalytics() {
+    const currentStaff = JSON.parse(localStorage.getItem('currentStaff')) || { role: 'staff' };
+    if (currentStaff.role !== 'admin') {
+        showAlert('error', 'Access denied! Only administrators can view analytics.');
+        return;
+    }
+    hideAllContent();
+    const content = document.getElementById('analyticsContent');
+    if (!content) return;
+    content.style.display = 'block';
+    loadAnalytics();
+}
+
+// Load analytics data and render simple KPI cards and charts into #analyticsArea
+function loadAnalytics() {
+    const orders = JSON.parse(localStorage.getItem('orders')) || [];
+    const menuItems = JSON.parse(localStorage.getItem('menuItems')) || [];
+
+    // Exclude cancelled orders from analytics calculations so cancelled orders do not affect KPIs
+    const analyticsOrders = orders.filter(o => !(o.status === 'Cancelled' || o.status === 'cancelled'));
+
+    const totalOrders = analyticsOrders.length;
+    const totalRevenue = analyticsOrders.reduce((s, o) => s + (Number(o.total) || 0), 0);
+    const avgOrderValue = totalOrders ? (totalRevenue / totalOrders) : 0;
+
+    // Product counts
+    const productCounts = {};
+    analyticsOrders.forEach(o => {
+        (o.items || []).forEach(it => {
+            const menuMatchForName = menuItems.find(m => ((m.id !== undefined && m.id === it.id) || ((m.name || '').toLowerCase() === (it.name || '').toLowerCase()))) || {};
+            const key = (it.name && String(it.name)) || menuMatchForName.name || (`item_${it.id || 'unknown'}`);
+            const qty = Number(it.quantity) || 1;
+            productCounts[key] = (productCounts[key] || 0) + qty;
+        });
+    });
+
+    const productArray = Object.keys(productCounts).map(name => ({ name, count: productCounts[name] }));
+    const bestSelling = productArray.slice().sort((a, b) => b.count - a.count).slice(0, 5);
+    const leastSelling = productArray.slice().sort((a, b) => a.count - b.count).slice(0, 5);
+
+    // Sales by location (municipality)
+    const salesByLocation = {};
+    analyticsOrders.forEach(o => {
+        const city = (o.address && (o.address.city || o.address.cityName)) || 'Unknown';
+        salesByLocation[city] = (salesByLocation[city] || 0) + (Number(o.total) || 0);
+    });
+    const salesByLocationArr = Object.keys(salesByLocation).map(k => ({ city: k, total: salesByLocation[k] })).sort((a,b)=>b.total-a.total);
+
+    // Peak ordering times (hour of day)
+    const hourCounts = new Array(24).fill(0);
+    analyticsOrders.forEach(o => {
+        let d = new Date(o.date || o.createdAt || Date.now());
+        if (isNaN(d.getTime())) d = new Date();
+        hourCounts[d.getHours()] += 1;
+    });
+
+    // Payment methods breakdown
+    const paymentCounts = {};
+    analyticsOrders.forEach(o => {
+        const label = resolvePaymentLabel(o) || 'Unknown';
+        paymentCounts[label] = (paymentCounts[label] || 0) + 1;
+    });
+    const paymentArr = Object.keys(paymentCounts).map(k => ({ method: k, count: paymentCounts[k] }));
+
+    // Render into #analyticsArea
+    const area = document.getElementById('analyticsArea');
+    if (!area) return;
+
+    // Helper for formatting currency
+    const formatCurrency = v => '₱' + Number(v || 0).toFixed(2);
+
+    // KPI cards - styled to match dashboard stat cards (icon + big number + label)
+    const formatCurrencyLocal = v => '₱' + Number(v || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    // Use the same .dashboard-stats/.stat-card markup as the main dashboard
+    const kpiHTML = `
+        <div class="dashboard-stats" style="margin-bottom:0;">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(34, 197, 94, 0.2);">
+                    <ion-icon name="receipt-outline" style="color: #22c55e;"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3>${totalOrders}</h3>
+                    <p>Total Orders</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(59, 130, 246, 0.2);">
+                    <ion-icon name="cash-outline" style="color: #3b82f6;"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3>${formatCurrencyLocal(totalRevenue)}</h3>
+                    <p>Total Revenue</p>
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-icon" style="background: rgba(248, 175, 30, 0.2);">
+                    <ion-icon name="stats-chart-outline" style="color: #f8af1e;"></ion-icon>
+                </div>
+                <div class="stat-info">
+                    <h3>${formatCurrencyLocal(avgOrderValue)}</h3>
+                    <p>Average Order Value</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Helper to render bars list
+    const renderBars = (items, valueKey, labelKey, maxWidthPx = 360) => {
+        const max = items.length ? Math.max(...items.map(it => it[valueKey])) : 1;
+        return items.map(it => `
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <div style="flex:0 0 140px; color:rgba(255,255,255,0.85); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${it[labelKey]}</div>
+                <div style="flex:1; background: rgba(255,255,255,0.04); height:12px; border-radius:8px; position:relative;">
+                    <div style="height:12px; border-radius:8px; background: linear-gradient(90deg,#f8af1e,#f59e0b); width: ${Math.round((it[valueKey] / (max || 1)) * 100)}%;"></div>
+                </div>
+                <div style="width:90px; text-align:right; color:rgba(255,255,255,0.85); font-weight:700;">${it[valueKey]}</div>
+            </div>
+        `).join('');
+    };
+
+    // Helper to render bars with currency label on the right
+    const renderCurrencyBars = (items, valueKey, labelKey) => {
+        const max = items.length ? Math.max(...items.map(it => it[valueKey])) : 1;
+        return items.map(it => `
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                <div style="flex:0 0 160px; color:rgba(255,255,255,0.85); font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${it[labelKey]}</div>
+                <div style="flex:1; background: rgba(255,255,255,0.04); height:12px; border-radius:8px; position:relative;">
+                    <div style="height:12px; border-radius:8px; background: linear-gradient(90deg,#34d399,#60a5fa); width: ${Math.round((it[valueKey] / (max || 1)) * 100)}%;"></div>
+                </div>
+                <div style="width:110px; text-align:right; color:rgba(255,255,255,0.85); font-weight:700;">${formatCurrencyLocal(it[valueKey])}</div>
+            </div>
+        `).join('');
+    };
+
+    // Best / Least selling columns
+    const bestHTML = `
+        <div style="flex:1; min-width:280px;">
+            <h3 style="margin:0 0 8px 0;">Top 5 Best-Selling Items</h3>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:8px 0 12px;"></div>
+            ${productArray.length ? renderBars(bestSelling, 'count', 'name') : '<p style="color:rgba(255,255,255,0.6);">No product sales yet.</p>'}
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:12px 0 0;"></div>
+        </div>
+    `;
+    // Removed least-selling card per request — we will show Sales by Location next to Best-Selling items
+
+    // Sales by location bars
+    const locationHTML = `
+        <div style="flex:1; min-width:320px;">
+            <h3 style="margin:0 0 8px 0;">Sales by Municipality</h3>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:8px 0 12px;"></div>
+            ${salesByLocationArr.length ? renderBars(salesByLocationArr.map(s=>({ city: s.city, total: Math.round(s.total) })), 'total', 'city') : '<p style="color:rgba(255,255,255,0.6);">No sales data.</p>'}
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:12px 0 0;"></div>
+        </div>
+    `;
+
+    // Category-based sales: aggregate totals by canonical item categories
+    // Use the clothing categories requested by the user
+    const canonicalCategories = [
+        "Men's Hoodies",
+        "Men's Sweatshirts",
+        "Women's Hoodies",
+        "Women's Sweatshirts",
+        "Kid's Hoodies",
+        "Kid's Sweatshirts",
+        "Baby's Hoodies",
+        "Baby's Sweatshirts"
+    ];
+    const categoryTotals = {};
+    // initialize canonical buckets to ensure consistent ordering/labels
+    canonicalCategories.forEach(c => categoryTotals[c] = 0);
+
+    const normalizeToCanonical = (raw) => {
+        if (!raw) return null;
+        // Keep a cleaned tokenized version for pattern matching
+        const cleanedTokens = String(raw).toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean);
+        const cleaned = cleanedTokens.join('');
+
+        // Direct canonical match by compacted string
+        for (const canon of canonicalCategories) {
+            const key = canon.toLowerCase().replace(/[^a-z0-9]/g, '');
+            if (cleaned.includes(key)) return canon;
+        }
+
+        // Helpful token tests for common variants (covers many misspellings and label shapes)
+        const has = (tok) => cleanedTokens.some(t => t.indexOf(tok) === 0 || t === tok);
+
+        // Men
+        if ((has('men') || has('mens')) && (has('hood') || has('hoodie') || has('hoodies'))) return "Men's Hoodies";
+        if ((has('men') || has('mens')) && (has('sweat') || has('sweatshirt') || has('sweatshirts'))) return "Men's Sweatshirts";
+        // Women
+        if ((has('women') || has('wom') || has('womens') || has('female') || has('lady') || has('ladies')) && (has('hood') || has('hoodie') || has('hoodies'))) return "Women's Hoodies";
+        if ((has('women') || has('wom') || has('womens') || has('female') || has('lady') || has('ladies')) && (has('sweat') || has('sweatshirt') || has('sweatshirts'))) return "Women's Sweatshirts";
+        // Kid
+        if ((has('kid') || has('kids') || has('child') || has('children')) && (has('hood') || has('hoodie') || has('hoodies'))) return "Kid's Hoodies";
+        if ((has('kid') || has('kids') || has('child') || has('children')) && (has('sweat') || has('sweatshirt') || has('sweatshirts'))) return "Kid's Sweatshirts";
+        // Baby
+        if ((has('baby') || has('infant')) && (has('hood') || has('hoodie') || has('hoodies'))) return "Baby's Hoodies";
+        if ((has('baby') || has('infant')) && (has('sweat') || has('sweatshirt') || has('sweatshirts'))) return "Baby's Sweatshirts";
+
+        return null;
+    };
+
+    // Helper to parse price tolerant of strings with currency symbols
+    const parsePrice = v => {
+        if (v === undefined || v === null) return 0;
+        const n = parseFloat(String(v).replace(/[^0-9.-]+/g, ''));
+        return isNaN(n) ? 0 : n;
+    };
+
+    // Use analyticsOrders here so cancelled orders are excluded from category totals
+    analyticsOrders.forEach(o => {
+        (o.items || []).forEach(it => {
+            // Try id match first, fall back to case-insensitive name match
+            const menuMatch = menuItems.find(m => ((m.id !== undefined && m.id === it.id) || ((m.name || '').toLowerCase() === (it.name || '').toLowerCase()))) || {};
+            // prefer explicit category on order item, then menu item category
+            const rawCat = (it.category || menuMatch.category || '');
+            const canonical = normalizeToCanonical(rawCat) || normalizeToCanonical(menuMatch.category) || 'Uncategorized';
+            const price = parsePrice(it.price !== undefined ? it.price : menuMatch.price);
+            const qty = Number(it.quantity) || 1;
+            categoryTotals[canonical] = (categoryTotals[canonical] || 0) + (price * qty);
+        });
+    });
+
+    // Build ordered array: canonical categories first (sorted by total desc), then any extra categories
+    const canonicalArr = canonicalCategories.map(c => ({ category: c, total: Math.round(categoryTotals[c] || 0) }));
+    // Include 'Uncategorized' if present and >0
+    const extra = [];
+    if (categoryTotals['Uncategorized']) extra.push({ category: 'Uncategorized', total: Math.round(categoryTotals['Uncategorized']) });
+    const categoryArr = canonicalArr.concat(extra).sort((a,b) => b.total - a.total).slice(0,8);
+
+    const categoryHTML = `
+        <div style="flex:1; min-width:320px;">
+            <h3 style="margin:0 0 8px 0;">Category-Based Sales</h3>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:8px 0 12px;"></div>
+            ${categoryArr.length ? renderCurrencyBars(categoryArr, 'total', 'category') : '<p style="color:rgba(255,255,255,0.6);">No category sales yet.</p>'}
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:12px 0 0;"></div>
+        </div>
+    `;
+
+    // Peak times line chart (simple SVG polyline)
+    const maxHour = Math.max(...hourCounts, 1);
+    const points = hourCounts.map((c, i) => {
+        const x = Math.round((i / 23) * 600);
+        const y = Math.round(120 - (c / maxHour) * 100);
+        return `${x},${y}`;
+    }).join(' ');
+    const hoursLabels = hourCounts.map((c, i) => `<span style="display:inline-block;width:24px;text-align:center;color:rgba(255,255,255,0.6);font-size:0.75rem;">${i}</span>`).join('');
+    const peakHTML = `
+        <div style="flex:1; min-width:320px;">
+            <h3 style="margin:0 0 8px 0;">Peak Sales Hours</h3>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:8px 0 12px;"></div>
+            <div style="background: rgba(255,255,255,0.03); padding:12px; border-radius:8px;">
+                <svg width="100%" viewBox="0 0 600 140" preserveAspectRatio="none" style="width:100%; height:140px; display:block;">
+                    <polyline fill="none" stroke="#60a5fa" stroke-width="3" points="${points}"></polyline>
+                    ${hourCounts.map((c, i)=>{
+                        const x = Math.round((i / 23) * 600);
+                        const y = Math.round(120 - (c / maxHour) * 100);
+                        return `<circle cx="${x}" cy="${y}" r="2.2" fill="#60a5fa"></circle>`;
+                    }).join('')}
+                </svg>
+                <div style="margin-top:6px; display:flex; gap:4px; flex-wrap:wrap;">${hoursLabels}</div>
+            </div>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:12px 0 0;"></div>
+        </div>
+    `;
+
+    // Payment method pie using conic-gradient
+    const totalPayments = paymentArr.reduce((s, p) => s + p.count, 0) || 1;
+    const colors = ['#34d399','#60a5fa','#f472b6','#fbbf24','#f87171','#a78bfa'];
+    let start = 0;
+    const slices = paymentArr.map((p, idx) => {
+        const perc = (p.count / totalPayments) * 100;
+        const from = start; const to = start + perc; start = to;
+        return `${colors[idx % colors.length]} ${from}% ${to}%`;
+    }).join(', ');
+    const paymentLegend = paymentArr.map((p, idx) => `<div style="display:flex; gap:8px; align-items:center; color:rgba(255,255,255,0.8);"><span style="width:12px;height:12px;background:${colors[idx%colors.length]};display:inline-block;border-radius:2px;"></span><strong style="min-width:140px">${p.method}</strong><span style="margin-left:auto;color:rgba(255,255,255,0.7);">${p.count} (${((p.count/totalPayments)*100).toFixed(0)}%)</span></div>`).join('');
+    const paymentHTML = `
+        <div style="flex:1; min-width:240px;">
+            <h3 style="margin:0 0 8px 0;">Payment Methods</h3>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:8px 0 12px;"></div>
+            <div style="display:flex; gap:12px; align-items:center;">
+                <div style="width:120px;height:120px;border-radius:999px;background: conic-gradient(${slices});"></div>
+                <div style="flex:1">${paymentLegend || '<p style="color:rgba(255,255,255,0.6);">No payment data.</p>'}</div>
+            </div>
+            <div style="height:0; border-top:1px dashed rgba(255,255,255,0.06); margin:12px 0 0;"></div>
+        </div>
+    `;
+
+    area.innerHTML = `
+        ${kpiHTML}
+
+        <!-- Products containers: separate boxed cards for Best and Least selling lists -->
+        <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:12px;">
+            <div style="flex:1; min-width:280px; background: var(--card-bg); border: 1px solid var(--glass-border); border-radius:12px; padding:14px;">
+                ${bestHTML}
+            </div>
+            <div style="flex:1; min-width:320px; background: var(--card-bg); border: 1px solid var(--glass-border); border-radius:12px; padding:14px;">
+                ${locationHTML}
+            </div>
+        </div>
+
+        <div style="display:flex; gap:18px; flex-wrap:wrap; margin-top:6px;">
+            <div style="flex:1; min-width:320px; background: var(--card-bg); border: 1px solid var(--glass-border); border-radius:12px; padding:14px;">
+                ${categoryHTML}
+            </div>
+            <div style="flex:1; min-width:240px; background: var(--card-bg); border: 1px solid var(--glass-border); border-radius:12px; padding:14px;">
+                ${paymentHTML}
+            </div>
+        </div>
+    `;
+}
+
 function hideAllContent() {
     document.querySelectorAll('.dashboard-content').forEach(content => {
         content.style.display = 'none';
@@ -172,7 +521,6 @@ function loadDashboardStats() {
     const orders = JSON.parse(localStorage.getItem('orders')) || [];
     const users = JSON.parse(localStorage.getItem('users')) || [];
     const menuItems = JSON.parse(localStorage.getItem('menuItems')) || [];
-    
     const pendingOrders = orders.filter(order => order.status === 'Processing').length;
     
     document.getElementById('totalOrders').textContent = orders.length;
@@ -195,7 +543,7 @@ function normalizeOrdersForDashboard() {
             if (resolved && resolved !== 'Unknown') {
                 if (updated.paymentMethodName !== resolved) { updated.paymentMethodName = resolved; changed = true; }
                 if (!updated.paymentMethod || updated.paymentMethod !== resolved) { updated.paymentMethod = resolved; changed = true; }
-                const nameToId = { 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
+                const nameToId = { 'Cash on Delivery': 'cod', 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
                 const id = nameToId[resolved] || (typeof updated.paymentMethodId === 'string' ? updated.paymentMethodId : null);
                 if (id && updated.paymentMethodId !== id) { updated.paymentMethodId = id; changed = true; }
             } else if (updated.paymentMethodId && typeof updated.paymentMethodId === 'object') {
@@ -206,7 +554,7 @@ function normalizeOrdersForDashboard() {
                     if (fix && fix !== 'Unknown') {
                         updated.paymentMethodName = fix;
                         updated.paymentMethod = fix;
-                        const nameToId = { 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
+                    const nameToId = { 'Cash on Delivery': 'cod', 'GCash': 'gcash', 'Maya': 'maya', 'PayPal': 'paypal' };
                         updated.paymentMethodId = nameToId[fix] || String(maybe);
                         changed = true;
                     }
@@ -257,12 +605,14 @@ function resolvePaymentLabel(order) {
     ].join(' ').toLowerCase();
 
     const norm = candidates.replace(/[^a-z0-9]/g, '');
+    if (norm.includes('cod') || (norm.includes('cash') && norm.includes('delivery'))) return 'Cash on Delivery';
     if (norm.includes('gcash')) return 'GCash';
     if (norm.includes('paymaya') || norm.includes('maya')) return 'Maya';
     if (norm.includes('paypal')) return 'PayPal';
 
     // Final direct checks (in case a friendly name exists but didn't include tokens)
     const direct = (asString(order.paymentMethodName) || asString(order.paymentMethod) || asString(order.paymentMethodId) || '').trim().toLowerCase();
+    if (direct === 'cod' || direct === 'cashondelivery' || direct === 'cash on delivery') return 'Cash on Delivery';
     if (direct === 'gcash') return 'GCash';
     if (direct === 'maya' || direct === 'paymaya') return 'Maya';
     if (direct === 'paypal') return 'PayPal';
@@ -288,7 +638,7 @@ function loadRecentOrders() {
     }
     
     // Map payment method for display
-    const methodMap = { gcash: 'GCash', maya: 'Maya', paypal: 'PayPal' };
+    const methodMap = { cod: 'Cash on Delivery', gcash: 'GCash', maya: 'Maya', paypal: 'PayPal' };
     ordersList.innerHTML = recentOrders.map(order => {
         const orderDate = new Date(order.date);
         const statusColor = getStatusColor(order.status);
@@ -365,6 +715,37 @@ function filterOrders(status) {
                         <p class="order-date">${orderDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
                     </div>
                     <div class="order-actions">
+                        ${order.status === 'Cancelled' ? `
+                            <button onclick="showOrderItems(${order.id})" class="action-btn" style="
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                border: 1px solid rgba(99, 102, 241, 0.15);
+                                background: rgba(99, 102, 241, 0.08);
+                                color: #6366f1;
+                                font-weight: 600;
+                                cursor: pointer;
+                                outline: none;
+                            ">
+                                <ion-icon name="eye-outline" style="vertical-align: middle;"></ion-icon>
+                                View Items
+                            </button>
+                            ${isAdmin ? `
+                            <button onclick="deleteOrder(${order.id})" class="action-btn" style="
+                                padding: 8px 12px;
+                                border-radius: 8px;
+                                border: 1px solid rgba(0,0,0,0.15);
+                                background: rgba(0,0,0,0.6);
+                                color: #ffffff;
+                                font-weight: 600;
+                                cursor: pointer;
+                                outline: none;
+                                margin-left: 8px;
+                            ">
+                                <ion-icon name="trash-outline" style="vertical-align: middle;"></ion-icon>
+                                Delete
+                            </button>
+                            ` : ''}
+                        ` : `
                         <select onchange="updateOrderStatus(${order.id}, this.value)" class="status-select" style="
                             padding: 8px 12px;
                             border-radius: 8px;
@@ -375,9 +756,10 @@ function filterOrders(status) {
                             cursor: pointer;
                             outline: none;
                         ">
-                            <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
-                            <option value="Shipping" ${order.status === 'Shipping' ? 'selected' : ''}>Shipping</option>
-                            <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
+                                <option value="Processing" ${order.status === 'Processing' ? 'selected' : ''}>Processing</option>
+                                <option value="Preparing" ${order.status === 'Preparing' ? 'selected' : ''}>Preparing</option>
+                                <option value="Shipping" ${order.status === 'Shipping' ? 'selected' : ''}>Shipping</option>
+                                <option value="Delivered" ${order.status === 'Delivered' ? 'selected' : ''}>Delivered</option>
                         </select>
                         <button onclick="showOrderItems(${order.id})" class="action-btn" style="
                             padding: 8px 12px;
@@ -394,12 +776,27 @@ function filterOrders(status) {
                             View Items
                         </button>
                         ${isAdmin ? `
-                        <button onclick="deleteOrder(${order.id})" class="action-btn" style="
+                        <button onclick="cancelOrder(${order.id})" class="action-btn" style="
                             padding: 8px 12px;
                             border-radius: 8px;
                             border: 1px solid rgba(239, 68, 68, 0.4);
-                            background: rgba(239, 68, 68, 0.2);
+                            background: rgba(239, 68, 68, 0.12);
                             color: #ef4444;
+                            font-weight: 600;
+                            cursor: pointer;
+                            outline: none;
+                            margin-left: 8px;
+                        ">
+                            <ion-icon name="close-circle-outline" style="vertical-align: middle;"></ion-icon>
+                            Cancel
+                        </button>
+
+                        <button onclick="deleteOrder(${order.id})" class="action-btn" style="
+                            padding: 8px 12px;
+                            border-radius: 8px;
+                            border: 1px solid rgba(0,0,0,0.15);
+                            background: rgba(0,0,0,0.6);
+                            color: #ffffff;
                             font-weight: 600;
                             cursor: pointer;
                             outline: none;
@@ -409,6 +806,7 @@ function filterOrders(status) {
                             Delete
                         </button>
                         ` : ''}
+                        `}
                     </div>
                 </div>
                 <div class="order-details">
@@ -432,6 +830,11 @@ function updateOrderStatus(orderId, newStatus) {
     const orderIndex = orders.findIndex(order => order.id === orderId);
     
     if (orderIndex !== -1) {
+        // Prevent changing status of orders that have been cancelled
+        if (orders[orderIndex].status === 'Cancelled') {
+            showAlert('error', `Cannot change status of cancelled Order #${orderId}.`);
+            return;
+        }
         orders[orderIndex].status = newStatus;
         localStorage.setItem('orders', JSON.stringify(orders));
         showAlert('success', `Order #${orderId} status updated to ${newStatus}`);
@@ -464,8 +867,10 @@ function deleteOrder(orderId) {
 function getStatusColor(status) {
     switch(status) {
         case 'Processing': return '#f8af1e';
+        case 'Preparing': return '#f8af1e';
         case 'Shipping': return '#3b82f6';
         case 'Delivered': return '#22c55e';
+        case 'Cancelled': return '#ef4444';
         default: return '#6b7280';
     }
 }
@@ -482,8 +887,8 @@ function loadViewMenuItems() {
         menuList.innerHTML = `
             <div style="text-align: center; padding: 60px; color: rgba(255,255,255,0.6);">
                 <ion-icon name="restaurant-outline" style="font-size: 4rem; margin-bottom: 15px;"></ion-icon>
-                <h3 style="color: rgba(255,255,255,0.8); margin-bottom: 10px;">No Menu Items</h3>
-                <p>No menu items available at the moment.</p>
+                <h3 style="color: rgba(255,255,255,0.8); margin-bottom: 10px;">No Products</h3>
+                <p>No products available at the moment.</p>
             </div>
         `;
         return;
@@ -520,8 +925,8 @@ function loadMenuItems() {
         menuList.innerHTML = `
             <div style="text-align: center; padding: 60px; color: rgba(255,255,255,0.6);">
                 <ion-icon name="restaurant-outline" style="font-size: 4rem; margin-bottom: 15px;"></ion-icon>
-                <h3 style="color: rgba(255,255,255,0.8); margin-bottom: 10px;">No Menu Items</h3>
-                <p>Start by adding your first menu item.</p>
+                <h3 style="color: rgba(255,255,255,0.8); margin-bottom: 10px;">No Products</h3>
+                <p>Start by adding your first product.</p>
             </div>
         `;
         return;
@@ -667,14 +1072,14 @@ function showAddMenuItemForm() {
         <div class="modal-overlay" id="menuItemModal" onclick="if(event.target === this) closeMenuItemModal()">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Add New Menu Item</h2>
+                    <h2>Add New Product</h2>
                     <button onclick="closeMenuItemModal()" class="close-btn">
                         <ion-icon name="close-outline"></ion-icon>
                     </button>
                 </div>
                 <form onsubmit="saveMenuItem(event)">
                     <div class="form-group">
-                        <label>Item Name *</label>
+                        <label>Product Name *</label>
                         <input type="text" id="itemName" required>
                     </div>
                     <div class="form-group">
@@ -684,13 +1089,15 @@ function showAddMenuItemForm() {
                     <div class="form-group">
                         <label>Category *</label>
                         <select id="itemCategory" required>
-                            <option value="">Select category</option>
-                            <option value="Steamed">Steamed Dishes</option>
-                            <option value="Fried">Fried Dishes</option>
-                            <option value="Baked">Baked Dishes</option>
-                            <option value="Noodles">Noodles</option>
-                            <option value="Special">Special Dishes</option>
-                            <option value="Dessert">Dessert</option>
+                            <option value="">Select Category</option>
+                            <option value="Men's Hoodies">Men's Hoodies</option>
+                            <option value="Men's Sweatshirts">Men's Sweatshirts</option>
+                            <option value="Women's Hoodies">Women's Hoodies</option>
+                            <option value="Women's Sweatshirts">Women's Sweatshirts</option>
+                            <option value="Kid's Hoodies">Kid's Hoodies</option>
+                            <option value="Kid's Sweatshirts">Kid's Sweatshirts</option>
+                            <option value="Baby's Hoodies">Baby's Hoodies</option>
+                            <option value="Baby's Sweatshirts">Baby's Sweatshirts</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -703,7 +1110,7 @@ function showAddMenuItemForm() {
                             Available for order
                         </label>
                     </div>
-                    <button type="submit" class="submit-btn">Add Menu Item</button>
+                    <button type="submit" class="submit-btn">Add Product</button>
                 </form>
             </div>
         </div>
@@ -746,7 +1153,7 @@ function editMenuItem(itemId) {
         <div class="modal-overlay" id="menuItemModal" onclick="if(event.target === this) closeMenuItemModal()">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h2>Edit Menu Item</h2>
+                    <h2>Edit Product Details</h2>
                     <button onclick="closeMenuItemModal()" class="close-btn">
                         <ion-icon name="close-outline"></ion-icon>
                     </button>
@@ -763,12 +1170,15 @@ function editMenuItem(itemId) {
                     <div class="form-group">
                         <label>Category *</label>
                         <select id="itemCategory" required>
-                            <option value="Steamed" ${item.category === 'Steamed' ? 'selected' : ''}>Steamed Dishes</option>
-                            <option value="Fried" ${item.category === 'Fried' ? 'selected' : ''}>Fried Dishes</option>
-                            <option value="Baked" ${item.category === 'Baked' ? 'selected' : ''}>Baked Dishes</option>
-                            <option value="Noodles" ${item.category === 'Noodles' ? 'selected' : ''}>Noodles</option>
-                            <option value="Special" ${item.category === 'Special' ? 'selected' : ''}>Special Dishes</option>
-                            <option value="Dessert" ${item.category === 'Dessert' ? 'selected' : ''}>Dessert</option>
+                            <option value="">Select Category</option>
+                            <option value="Men's Hoodies" ${item.category === "Men's Hoodies" ? 'selected' : ''}>Men's Hoodies</option>
+                            <option value="Men's Sweatshirts" ${item.category === "Men's Sweatshirts" ? 'selected' : ''}>Men's Sweatshirts</option>
+                            <option value="Women's Hoodies" ${item.category === "Women's Hoodies" ? 'selected' : ''}>Women's Hoodies</option>
+                            <option value="Women's Sweatshirts" ${item.category === "Women's Sweatshirts" ? 'selected' : ''}>Women's Sweatshirts</option>
+                            <option value="Kid's Hoodies" ${item.category === "Kid's Hoodies" ? 'selected' : ''}>Kid's Hoodies</option>
+                            <option value="Kid's Sweatshirts" ${item.category === "Kid's Sweatshirts" ? 'selected' : ''}>Kid's Sweatshirts</option>
+                            <option value="Baby's Hoodies" ${item.category === "Baby's Hoodies" ? 'selected' : ''}>Baby's Hoodies</option>
+                            <option value="Baby's Sweatshirts" ${item.category === "Baby's Sweatshirts" ? 'selected' : ''}>Baby's Sweatshirts</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -781,7 +1191,7 @@ function editMenuItem(itemId) {
                             Available for order
                         </label>
                     </div>
-                    <button type="submit" class="submit-btn">Update Menu Item</button>
+                    <button type="submit" class="submit-btn">Update Product Details</button>
                 </form>
             </div>
         </div>
@@ -964,14 +1374,7 @@ function showAddStaffForm() {
                         <label>Password *</label>
                         <input type="password" id="staffPassword" minlength="6" required>
                     </div>
-                    <div class="form-group">
-                        <label>Role *</label>
-                        <select id="staffRole" required>
-                            <option value="">Select role</option>
-                            <option value="staff">Staff</option>
-                            <option value="admin">Administrator</option>
-                        </select>
-                    </div>
+                    <!-- Role is fixed to 'staff' for newly added accounts -->
                     <button type="submit" class="submit-btn">Add Staff Member</button>
                 </form>
             </div>
@@ -1000,7 +1403,7 @@ function saveStaff(event) {
         name: document.getElementById('staffName').value,
         email: email,
         password: document.getElementById('staffPassword').value,
-        role: document.getElementById('staffRole').value,
+        role: 'staff',
         createdAt: new Date().toISOString()
     };
     
@@ -1265,4 +1668,57 @@ function toggleWholeAvailability(itemId) {
     closeManageAvailabilityModal();
     loadMenuItems();
     loadViewMenuItems();
+}
+
+function cancelOrder(orderId) {
+    const currentStaff = JSON.parse(localStorage.getItem('currentStaff')) || {};
+    if (currentStaff.role !== 'admin') {
+        showAlert('error', 'Access denied! Only administrators can cancel orders.');
+        return;
+    }
+
+    if (!confirm(`Are you sure you want to cancel Order #${orderId}?`)) {
+        return;
+    }
+
+    let orders = JSON.parse(localStorage.getItem('orders')) || [];
+    const idx = orders.findIndex(o => o.id === orderId);
+    if (idx === -1) {
+        showAlert('error', 'Order not found.');
+        return;
+    }
+
+    orders[idx].status = 'Cancelled';
+    localStorage.setItem('orders', JSON.stringify(orders));
+
+    showAlert('success', `Order #${orderId} has been cancelled.`);
+    // Persist a cancelled-order record so customers can see cancellations
+    try {
+        const cancelled = JSON.parse(localStorage.getItem('cancelledOrders')) || [];
+        // Try to associate to a user via explicit fields on the order, fallback to name-matching
+        let userEmail = orders[idx].customerEmail || null;
+        let userName = orders[idx].customerName || (orders[idx].address && orders[idx].address.name ? orders[idx].address.name : null);
+        if (!userEmail && userName) {
+            const users = JSON.parse(localStorage.getItem('users')) || [];
+            const matched = users.find(u => (u.name && userName && (u.name === userName || u.name.toLowerCase() === userName.toLowerCase())));
+            if (matched) userEmail = matched.email;
+        }
+
+        cancelled.push({
+            id: orders[idx].id,
+            date: new Date().toISOString(),
+            cancelledBy: 'admin',
+            userEmail: userEmail,
+            userName: userName,
+            orderSnapshot: orders[idx]
+        });
+        localStorage.setItem('cancelledOrders', JSON.stringify(cancelled));
+        try { localStorage.setItem('orders_updated', String(Date.now())); } catch (e) { /* ignore */ }
+    } catch (e) {
+        console.warn('Failed to persist cancelled order record', e);
+    }
+
+    loadAllOrders();
+    loadDashboardStats();
+    loadRecentOrders();
 }
